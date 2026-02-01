@@ -1,0 +1,253 @@
+// KingMe - Freedom Calculation Logic
+
+import type {
+  UserProfile,
+  Asset,
+  CryptoAsset,
+  RealEstateAsset,
+  StockAsset,
+  BusinessAsset,
+  FreedomResult,
+  FreedomState,
+  HeliusWalletData,
+} from '../types';
+
+/**
+ * Calculate total annual income from assets
+ */
+export function calculateAssetIncome(assets: Asset[]): number {
+  return assets.reduce((total, asset) => {
+    switch (asset.type) {
+      case 'crypto':
+      case 'defi': {
+        // For crypto, use APY if staked/in DeFi, otherwise 0
+        const cryptoMetadata = asset.metadata as CryptoAsset;
+        return total + (cryptoMetadata.apy ? asset.value * (cryptoMetadata.apy / 100) : 0);
+      }
+
+      case 'real_estate': {
+        const reMetadata = asset.metadata as RealEstateAsset;
+        const monthlyNet =
+          (reMetadata.monthlyRentalIncome || 0) - (reMetadata.monthlyExpenses || 0);
+        return total + monthlyNet * 12;
+      }
+
+      case 'stocks': {
+        const stockMetadata = asset.metadata as StockAsset;
+        return (
+          total + (stockMetadata.dividendYield ? asset.value * (stockMetadata.dividendYield / 100) : 0)
+        );
+      }
+
+      case 'business': {
+        const bizMetadata = asset.metadata as BusinessAsset;
+        return total + bizMetadata.annualDistributions;
+      }
+
+      default:
+        return total + asset.annualIncome; // fallback to manual entry
+    }
+  }, 0);
+}
+
+/**
+ * Calculate total annual obligations
+ */
+export function calculateAnnualObligations(profile: UserProfile): number {
+  return profile.obligations.reduce((total, obligation) => {
+    return total + obligation.amount * 12; // monthly to annual
+  }, 0);
+}
+
+/**
+ * Calculate total annual desires (annualized)
+ */
+export function calculateAnnualDesires(profile: UserProfile): number {
+  // For desires with target dates, annualize them
+  // For desires without dates, spread over 1 year
+  return profile.desires.reduce((total, desire) => {
+    if (desire.completedAt) return total; // skip completed desires
+    
+    // Simple approach: divide by 1 year for now
+    // Can be enhanced to factor in target dates
+    return total + desire.estimatedCost;
+  }, 0);
+}
+
+/**
+ * Calculate total annual debt service
+ */
+export function calculateAnnualDebtService(profile: UserProfile): number {
+  return profile.debts.reduce((total, debt) => {
+    return total + debt.monthlyPayment * 12;
+  }, 0);
+}
+
+/**
+ * Calculate total liquid assets (what you can sell for cash)
+ */
+export function calculateLiquidAssets(assets: Asset[]): number {
+  return assets.reduce((total, asset) => {
+    // All crypto/DeFi is liquid
+    // Real estate is NOT liquid for this calculation
+    if (asset.type === 'crypto' || asset.type === 'defi' || asset.type === 'stocks') {
+      return total + asset.value;
+    }
+    return total;
+  }, 0);
+}
+
+/**
+ * Format freedom days into human-readable string
+ */
+export function formatFreedomDays(days: number): string {
+  if (days === Infinity || days > 36500) {
+    // 100 years
+    return 'Forever';
+  }
+  if (days >= 730) {
+    // 2+ years
+    const years = Math.floor(days / 365);
+    return `${years} year${years > 1 ? 's' : ''}`;
+  }
+  if (days >= 365) {
+    return '1 year';
+  }
+  if (days >= 60) {
+    // 2+ months
+    const months = Math.floor(days / 30);
+    return `${months} month${months > 1 ? 's' : ''}`;
+  }
+  if (days >= 30) {
+    return '1 month';
+  }
+  return `${days} day${days !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Determine which freedom state (avatar) to show based on days
+ */
+export function getFreedomState(days: number): FreedomState {
+  if (days === Infinity || days > 3650) return 'enthroned'; // 10+ years or infinite
+  if (days >= 730) return 'rising'; // 2-10 years
+  if (days >= 180) return 'breaking'; // 6 months - 2 years
+  if (days >= 30) return 'struggling'; // 1-6 months
+  return 'drowning'; // 0-30 days
+}
+
+/**
+ * Main freedom calculation function
+ */
+export function calculateFreedom(profile: UserProfile): FreedomResult {
+  const assetIncome = calculateAssetIncome(profile.assets);
+  const totalObligations = calculateAnnualObligations(profile);
+  const totalDesires = calculateAnnualDesires(profile);
+  const debtService = calculateAnnualDebtService(profile);
+
+  const totalAnnualNeeds = totalObligations + totalDesires + debtService;
+  const dailyNeeds = totalAnnualNeeds / 365;
+  const dailyAssetIncome = assetIncome / 365;
+
+  let days: number;
+  let isKinged = false;
+
+  // Edge case: if everything is zero, you're not kinged, you're TBD
+  if (dailyAssetIncome === 0 && dailyNeeds === 0) {
+    days = 0;
+    isKinged = false;
+  }
+  // Check if daily asset income covers daily needs
+  else if (dailyAssetIncome >= dailyNeeds && dailyNeeds > 0) {
+    // You're KINGED - assets cover everything indefinitely
+    days = Infinity;
+    isKinged = true;
+  } else {
+    // Calculate runway based on liquid assets
+    const liquidAssets = calculateLiquidAssets(profile.assets);
+    const dailyBurn = dailyNeeds - dailyAssetIncome;
+
+    if (dailyBurn <= 0 || liquidAssets <= 0) {
+      days = 0;
+    } else {
+      days = Math.floor(liquidAssets / dailyBurn);
+    }
+  }
+
+  return {
+    days,
+    formatted: formatFreedomDays(days),
+    state: getFreedomState(days),
+    dailyAssetIncome,
+    dailyNeeds,
+    isKinged,
+  };
+}
+
+/**
+ * Calculate opportunity cost of idle assets
+ */
+export function calculateOpportunityCost(assets: Asset[]): {
+  idleValue: number;
+  potentialIncome: number;
+  freedomDaysImpact: number;
+} {
+  let idleValue = 0;
+  
+  // Find assets earning 0%
+  assets.forEach((asset) => {
+    if (asset.type === 'crypto') {
+      const cryptoMetadata = asset.metadata as CryptoAsset;
+      if (!cryptoMetadata.apy || cryptoMetadata.apy === 0) {
+        idleValue += asset.value;
+      }
+    }
+  });
+
+  // Assume conservative 8% APY for stablecoins
+  const potentialIncome = idleValue * 0.08;
+  
+  // Calculate how many additional days this would provide
+  // This is simplified - would need full profile for accurate calculation
+  const freedomDaysImpact = Math.floor((potentialIncome / 365));
+
+  return {
+    idleValue,
+    potentialIncome,
+    freedomDaysImpact,
+  };
+}
+
+/**
+ * Calculate impact of purchasing a desire
+ */
+export function calculateDesireImpact(
+  currentFreedom: FreedomResult,
+  desireCost: number,
+  liquidAssets: number
+): {
+  newDays: number;
+  daysDifference: number;
+  newState: FreedomState;
+} {
+  if (currentFreedom.isKinged) {
+    // If kinged, buying something doesn't impact days (as long as you stay kinged)
+    // Would need to recalculate if it drops you below kinged status
+    return {
+      newDays: Infinity,
+      daysDifference: 0,
+      newState: 'enthroned',
+    };
+  }
+
+  const newLiquidAssets = liquidAssets - desireCost;
+  const dailyBurn = currentFreedom.dailyNeeds - currentFreedom.dailyAssetIncome;
+  
+  const newDays = dailyBurn > 0 ? Math.floor(newLiquidAssets / dailyBurn) : 0;
+  const daysDifference = currentFreedom.days - newDays;
+
+  return {
+    newDays,
+    daysDifference,
+    newState: getFreedomState(newDays),
+  };
+}

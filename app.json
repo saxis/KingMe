@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 23
+          }
+        }
+      ]
+    ],
+    "scheme": "kingme"
+  }
+}

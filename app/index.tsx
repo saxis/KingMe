@@ -1,0 +1,57 @@
+// app/index.tsx
+import { useEffect, useState } from 'react';
+import { useRouter, useSegments } from 'expo-router';
+import { useStore } from '../src/store/useStore';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+
+export default function Index() {
+  const router = useRouter();
+  const segments = useSegments();
+  const [isLoading, setIsLoading] = useState(true);
+  const onboardingComplete = useStore((state) => state.onboardingComplete);
+  const loadProfile = useStore((state) => state.loadProfile);
+  
+  useEffect(() => {
+    // Load profile on app start
+    const initApp = async () => {
+      await loadProfile('temp'); // Doesn't need wallet for now
+      setIsLoading(false);
+    };
+    
+    initApp();
+  }, []);
+  
+  useEffect(() => {
+    // Only redirect if we're done loading and at the root
+    if (!isLoading && segments.length === 0) {
+      if (!onboardingComplete) {
+        router.replace('/onboarding/welcome');
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [isLoading, onboardingComplete, segments]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#f4c430" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#f4c430" />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0e1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

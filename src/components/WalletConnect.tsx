@@ -1,65 +1,59 @@
-// src/components/WalletConnect.tsx - Debug asset metadata
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
+// src/components/WalletConnect.tsx - Auto-detect wallet on web & mobile
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, Platform } from 'react-native';
 import { useState } from 'react';
 import { syncAllWallets } from '../services/helius';
 import { useStore } from '../store/useStore';
+import { useWallet } from '../providers/wallet-provider';
 
 export function WalletConnect() {
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showAddressModal, setShowAddressModal] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
-  const [addressInput, setAddressInput] = useState('');
   const [disconnectAddress, setDisconnectAddress] = useState('');
   
   const wallets = useStore((state) => state.wallets);
   const saveProfile = useStore((state) => state.saveProfile);
+  
+  // Mobile Wallet Adapter
+  const { connect, connecting, connected, publicKey, disconnect: mwaDisconnect } = useWallet();
 
-  const handleConnectByAddress = async () => {
-    if (!addressInput.trim()) {
-      Alert.alert('Error', 'Please enter a wallet address');
-      return;
-    }
-
-    setIsConnecting(true);
+  // Connect wallet (works on both web and mobile)
+  const handleConnect = async () => {
+  try {
+    // Connect via WalletProvider
+    await connect();
     
-    try {
-      const trimmedAddress = addressInput.trim();
+    // After successful connection, add to store
+    if (publicKey) {
+      const address = publicKey.toBase58();
       
-      if (trimmedAddress.length < 32 || trimmedAddress.length > 44) {
-        throw new Error('Invalid Solana address format');
-      }
-      
+      // Check if already in store
       const currentWallets = useStore.getState().wallets;
-      if (currentWallets.includes(trimmedAddress)) {
+      if (currentWallets.includes(address)) {
         Alert.alert('Already Connected', 'This wallet is already connected.');
-        setShowAddressModal(false);
-        setAddressInput('');
-        setIsConnecting(false);
         return;
       }
       
+      // Add to store
       useStore.setState({
-        wallets: [...currentWallets, trimmedAddress],
+        wallets: [...currentWallets, address],
       });
       
-      await handleSync(trimmedAddress);
+      // Sync assets
+      await handleSync(address);
       await saveProfile();
       
-      setShowAddressModal(false);
-      setAddressInput('');
-      
       Alert.alert(
-        'Wallet Connected!',
-        `Successfully connected ${trimmedAddress.slice(0, 4)}...${trimmedAddress.slice(-4)}`
+        'Wallet Connected! 📱',
+        `Successfully connected ${address.slice(0, 4)}...${address.slice(-4)}`
       );
-    } catch (error: any) {
-      console.error('Connection error:', error);
-      Alert.alert('Connection Failed', error.message || 'Failed to connect wallet');
-    } finally {
-      setIsConnecting(false);
     }
-  };
+  } catch (error: any) {
+    console.error('Connection error:', error);
+    if (!error.message?.includes('User rejected')) {
+      Alert.alert('Connection Failed', error.message || 'Failed to connect wallet');
+    }
+  }
+};
 
   const handleSync = async (walletAddress?: string) => {
     setIsSyncing(true);
@@ -82,9 +76,6 @@ export function WalletConnect() {
         a.type !== 'crypto' && a.type !== 'defi'
       );
       
-      console.log(`Keeping ${nonCryptoAssets.length} non-crypto assets`);
-      console.log(`Adding ${allAssets.length} crypto assets`);
-      
       useStore.setState({
         assets: [...nonCryptoAssets, ...allAssets],
       });
@@ -104,82 +95,75 @@ export function WalletConnect() {
   };
 
   const handleDisconnectClick = (address: string) => {
-    console.log('Disconnect button clicked for:', address);
     setDisconnectAddress(address);
     setShowDisconnectModal(true);
   };
 
   const confirmDisconnect = async () => {
     try {
-      console.log('Starting disconnect process for:', disconnectAddress);
-      
       const currentWallets = useStore.getState().wallets;
       const currentAssets = useStore.getState().assets;
       
-      console.log('Current wallets:', currentWallets);
-      console.log('Current assets count:', currentAssets.length);
-      
-      // DEBUG: Log all assets with their metadata
-      console.log('=== ASSET DETAILS ===');
-      currentAssets.forEach((asset, idx) => {
-        console.log(`Asset ${idx + 1}:`, {
-          name: asset.name,
-          type: asset.type,
-          id: asset.id,
-          metadata: asset.metadata,
-          walletAddress: (asset.metadata as any)?.walletAddress
-        });
-      });
-      console.log('=== END ASSET DETAILS ===');
-      
       const newWallets = currentWallets.filter(w => w !== disconnectAddress);
-      console.log('New wallets:', newWallets);
       
       const filteredAssets = currentAssets.filter(asset => {
-        // Keep non-crypto/defi assets
         if (asset.type !== 'crypto' && asset.type !== 'defi') {
-          console.log(`Keeping non-crypto asset: ${asset.name}`);
           return true;
         }
         
         const metadata = asset.metadata as any;
         const walletAddress = metadata?.walletAddress;
         
-        console.log(`Checking crypto asset: ${asset.name}, wallet: ${walletAddress}`);
-        
         if (!walletAddress) {
-          console.log(`  -> No wallet address, keeping`);
           return true;
         }
         
-        const shouldKeep = walletAddress !== disconnectAddress;
-        if (!shouldKeep) {
-          console.log(`  -> REMOVING (matches ${disconnectAddress.slice(0,4)}...${disconnectAddress.slice(-4)})`);
-        } else {
-          console.log(`  -> Keeping (wallet: ${walletAddress.slice(0,4)}...${walletAddress.slice(-4)})`);
-        }
-        return shouldKeep;
+        return walletAddress !== disconnectAddress;
       });
-      
-      console.log('Filtered assets count:', filteredAssets.length);
-      console.log('Assets removed:', currentAssets.length - filteredAssets.length);
       
       useStore.setState({ 
         wallets: newWallets,
         assets: filteredAssets,
       });
       
+      // Disconnect from wallet adapter if this is the active wallet
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && 'solana' in window) {
+          const currentAddress = (window as any).solana?.publicKey?.toString();
+          if (currentAddress === disconnectAddress) {
+            await (window as any).solana.disconnect();
+          }
+        }
+      } else {
+        // Mobile: disconnect from MWA if this is the active wallet
+        if (connected && publicKey && publicKey.toBase58() === disconnectAddress) {
+          mwaDisconnect();
+        }
+      }
+      
       await saveProfile();
       
       setShowDisconnectModal(false);
       setDisconnectAddress('');
       
-      console.log('Disconnect complete');
       Alert.alert('Success', 'Wallet disconnected successfully');
     } catch (error: any) {
       console.error('Disconnect error:', error);
       Alert.alert('Error', error.message || 'Failed to disconnect wallet');
     }
+  };
+
+  // Check if a wallet is currently active
+  const isActiveWallet = (address: string): boolean => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && 'solana' in window) {
+        const currentAddress = (window as any).solana?.publicKey?.toString();
+        return currentAddress === address;
+      }
+    } else {
+      return connected && publicKey?.toBase58() === address;
+    }
+    return false;
   };
 
   return (
@@ -216,7 +200,16 @@ export function WalletConnect() {
                 <Text style={styles.walletAddress}>
                   {address.slice(0, 4)}...{address.slice(-4)}
                 </Text>
-                <Text style={styles.walletLabel}>Connected</Text>
+                <View style={styles.walletLabels}>
+                  <Text style={styles.walletLabel}>Connected</Text>
+                  {isActiveWallet(address) && (
+                    <View style={styles.activeBadge}>
+                      <Text style={styles.activeText}>
+                        {Platform.OS === 'web' ? '🦊 Active' : '📱 Active'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
               <TouchableOpacity 
                 onPress={() => handleDisconnectClick(address)}
@@ -232,57 +225,17 @@ export function WalletConnect() {
 
       <TouchableOpacity
         style={styles.connectButton}
-        onPress={() => setShowAddressModal(true)}
+        onPress={handleConnect}
+        disabled={connecting}
       >
-        <Text style={styles.connectButtonText}>+ Connect Wallet</Text>
+        {connecting ? (
+          <ActivityIndicator size="small" color="#0a0e1a" />
+        ) : (
+          <Text style={styles.connectButtonText}>
+            {Platform.OS === 'web' ? '🦊 Connect Phantom' : '📱 Connect Wallet'}
+          </Text>
+        )}
       </TouchableOpacity>
-
-      <Modal visible={showAddressModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddressModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Connect Wallet</Text>
-            
-            <Text style={styles.label}>Enter your Solana wallet address:</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 7xKXt...9YoLF"
-              placeholderTextColor="#666"
-              value={addressInput}
-              onChangeText={setAddressInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            
-            <Text style={styles.helperText}>
-              Paste your Phantom or Solflare wallet address. Your tokens will sync automatically.
-            </Text>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowAddressModal(false);
-                  setAddressInput('');
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.confirmButton, (!addressInput.trim() || isConnecting) && styles.confirmButtonDisabled]}
-                onPress={handleConnectByAddress}
-                disabled={!addressInput.trim() || isConnecting}
-              >
-                {isConnecting ? (
-                  <ActivityIndicator size="small" color="#0a0e1a" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Connect</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={showDisconnectModal} animationType="fade" transparent={true} onRequestClose={() => setShowDisconnectModal(false)}>
         <View style={styles.modalOverlay}>
@@ -337,7 +290,10 @@ const styles = StyleSheet.create({
   walletsList: { marginBottom: 12 },
   walletCard: { backgroundColor: '#1a1f2e', padding: 16, borderRadius: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#4ade80' },
   walletAddress: { fontSize: 16, color: '#ffffff', fontWeight: '600', marginBottom: 4 },
+  walletLabels: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   walletLabel: { fontSize: 12, color: '#4ade80' },
+  activeBadge: { backgroundColor: '#4ade8022', borderWidth: 1, borderColor: '#4ade80', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  activeText: { fontSize: 11, color: '#4ade80', fontWeight: '600' },
   disconnectButtonContainer: { padding: 8 },
   disconnectButton: { fontSize: 14, color: '#ff6b6b', fontWeight: '600' },
   connectButton: { backgroundColor: '#4ade80', padding: 16, borderRadius: 12, alignItems: 'center' },
@@ -345,18 +301,12 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#0a0e1a', borderRadius: 20, padding: 24, width: '100%', maxWidth: 400 },
   modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#4ade80', marginBottom: 20 },
-  label: { fontSize: 15, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
-  input: { backgroundColor: '#1a1f2e', borderRadius: 12, padding: 14, fontSize: 16, color: '#fff', borderWidth: 2, borderColor: '#2a2f3e', marginBottom: 12 },
-  helperText: { fontSize: 13, color: '#666', marginBottom: 20, lineHeight: 18 },
   disconnectWarning: { fontSize: 16, color: '#fff', marginBottom: 12, textAlign: 'center', lineHeight: 24 },
   disconnectAddress: { color: '#4ade80', fontWeight: '600' },
   disconnectSubtext: { fontSize: 13, color: '#888', marginBottom: 20, textAlign: 'center', lineHeight: 18 },
   modalButtons: { flexDirection: 'row', gap: 12 },
   cancelButton: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center' },
   cancelButtonText: { color: '#a0a0a0', fontSize: 16 },
-  confirmButton: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#4ade80', alignItems: 'center' },
-  confirmButtonDisabled: { opacity: 0.4 },
-  confirmButtonText: { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
   dangerButton: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#ff6b6b', alignItems: 'center' },
   dangerButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

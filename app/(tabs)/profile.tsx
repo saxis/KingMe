@@ -1,8 +1,13 @@
 // app/(tabs)/profile.tsx
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useState } from 'react';
 import { useStore, useFreedomScore } from '../../src/store/useStore';
 import { WalletConnect } from '../../src/components/WalletConnect';
+import { useWallet } from '../../src/providers/wallet-provider';
+import { saveToArweave, loadLatestBackup } from '../../src/services/arweaveStorage';
+import * as Clipboard from 'expo-clipboard';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import type { BankAccount } from '../../src/types';
 
 export default function ProfileScreen() {
@@ -19,6 +24,9 @@ export default function ProfileScreen() {
   const resetStore        = useStore((state) => state.resetStore);
 
   const freedom = useFreedomScore();
+  
+  // Wallet provider
+  const { signMessage, publicKey, connected } = useWallet();
 
   // ── Add-account modal state ──────────────────────────────────────────────
   const [showAddModal, setShowAddModal]   = useState(false);
@@ -31,6 +39,10 @@ export default function ProfileScreen() {
   const [accountType, setAccountType]   = useState<'checking' | 'savings' | 'investment'>('checking');
   const [currentBalance, setCurrentBalance] = useState('');
   const [isPrimary, setIsPrimary]       = useState(false);
+  
+  // Arweave sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   // ── Confirmation state (for delete) ──────────────────────────────────────
   const [deleteId, setDeleteId]         = useState<string | null>(null);
@@ -69,7 +81,7 @@ export default function ProfileScreen() {
 
   const handleSetPrimary = (id: string) => {
     const acct = bankAccounts.find((a) => a.id === id);
-    if (acct?.isPrimaryIncome) return; // already primary, nothing to do
+    if (acct?.isPrimaryIncome) return;
     bankAccounts.forEach((a) => {
       if (a.isPrimaryIncome) updateBankAccount(a.id, { isPrimaryIncome: false });
     });
@@ -79,9 +91,14 @@ export default function ProfileScreen() {
   const totalBalance = bankAccounts.reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
   const handleResetOnboarding = () => {
-    if (confirm('Are you sure? This will clear all your data.')) {
-      resetStore();
-    }
+    Alert.alert(
+      'Reset All Data?',
+      'This will clear all your data. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: () => resetStore() }
+      ]
+    );
   };
 
   const handleExportBackup = () => {
@@ -93,34 +110,145 @@ export default function ProfileScreen() {
   const handleImportBackup = () => {
     try {
       importBackup(importJson);
-      alert('Backup imported successfully!');
+      Alert.alert('Success', 'Backup imported successfully!');
       setImportJson('');
       setShowImportModal(false);
     } catch (error) {
-      alert('Failed to import backup: ' + (error as Error).message);
+      Alert.alert('Error', 'Failed to import backup: ' + (error as Error).message);
     }
   };
 
   const handleCopyBackup = async () => {
-    // For web: navigator.clipboard
-    // For RN: use @react-native-clipboard/clipboard
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(backupJson);
-      alert('Backup copied to clipboard!');
+    try {
+      await Clipboard.setStringAsync(backupJson);
+      Alert.alert('Copied!', 'Backup copied to clipboard!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy to clipboard');
     }
   };
 
-  const handleDownloadBackup = () => {
-    // For web: create download link
-    if (typeof document !== 'undefined') {
-      const blob = new Blob([backupJson], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `kingme-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+  const handleDownloadBackup = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        // Web: create download link (with type guards)
+        if (typeof window !== 'undefined' && 'document' in window) {
+          const blob = new Blob([backupJson], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = window.document.createElement('a');
+          a.href = url;
+          a.download = `kingme-backup-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        // Mobile: save to file and share
+        const fileUri = `${FileSystem.documentDirectory}kingme-backup-${new Date().toISOString().split('T')[0]}.json`;
+        await FileSystem.writeAsStringAsync(fileUri, backupJson);
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+        } else {
+          Alert.alert('Saved', `Backup saved to ${fileUri}`);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to download backup');
     }
+  };
+  
+  // Arweave backup/restore
+  const handleArweaveBackup = async () => {
+    if (!connected || !publicKey) {
+      Alert.alert('No Wallet Connected', 'Please connect a wallet first to enable encrypted backup.');
+      return;
+    }
+
+    setIsSyncing(true);
+    
+    try {
+      const profileData = {
+        bankAccounts,
+        income,
+        obligations: useStore.getState().obligations,
+        debts: useStore.getState().debts,
+        assets,
+        desires: useStore.getState().desires,
+        wallets: useStore.getState().wallets,
+        paycheckDeductions: useStore.getState().paycheckDeductions,
+        preTaxDeductions: useStore.getState().preTaxDeductions,
+        taxes: useStore.getState().taxes,
+        postTaxDeductions: useStore.getState().postTaxDeductions,
+        timestamp: new Date().toISOString(),
+      };
+      
+      const txId = await saveToArweave(profileData, signMessage, publicKey.toBase58());
+      
+      setLastSyncTime(new Date().toISOString());
+      
+      Alert.alert(
+        'Backup Complete! 🌐',
+        `Profile encrypted and backed up.\n\nTransaction: ${txId.slice(0, 12)}...\n\nYou can restore on any device with this wallet.`
+      );
+    } catch (error: any) {
+      console.error('Backup failed:', error);
+      Alert.alert('Backup Failed', error.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleArweaveRestore = async () => {
+    if (!connected || !publicKey) {
+      Alert.alert('No Wallet Connected', 'Please connect a wallet first to restore your backup.');
+      return;
+    }
+
+    Alert.alert(
+      'Restore from Arweave?',
+      'This will replace all current data with your backed-up profile. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setIsSyncing(true);
+            
+            try {
+              const profileData = await loadLatestBackup(publicKey.toBase58(), signMessage);
+              
+              useStore.setState({
+                bankAccounts: profileData.bankAccounts || [],
+                income: profileData.income || { salary: 0, otherIncome: 0, sources: [] },
+                obligations: profileData.obligations || [],
+                debts: profileData.debts || [],
+                assets: profileData.assets || [],
+                desires: profileData.desires || [],
+                wallets: profileData.wallets || [publicKey.toBase58()],
+                paycheckDeductions: profileData.paycheckDeductions || [],
+                preTaxDeductions: profileData.preTaxDeductions || [],
+                taxes: profileData.taxes || [],
+                postTaxDeductions: profileData.postTaxDeductions || [],
+              });
+              
+              await useStore.getState().saveProfile();
+              
+              setLastSyncTime(profileData.timestamp);
+              
+              Alert.alert(
+                'Restore Complete! ✅',
+                `Profile restored from backup.\n\nLast backup: ${new Date(profileData.timestamp).toLocaleString()}`
+              );
+            } catch (error: any) {
+              console.error('Restore failed:', error);
+              Alert.alert('Restore Failed', error.message || 'No backup found for this wallet');
+            } finally {
+              setIsSyncing(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const typeIcon = { checking: '🏦', savings: '💰', investment: '📈' };
@@ -171,7 +299,6 @@ export default function ProfileScreen() {
                     </View>
                   </View>
 
-                  {/* Primary toggle */}
                   <TouchableOpacity
                     style={styles.primaryRow}
                     onPress={() => handleSetPrimary(acct.id)}
@@ -186,7 +313,6 @@ export default function ProfileScreen() {
                 </View>
               ))}
 
-              {/* Total */}
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total Balance</Text>
                 <Text style={styles.totalValue}>${totalBalance.toLocaleString()}</Text>
@@ -275,6 +401,50 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Arweave Encrypted Sync ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🌐 Arweave Encrypted Sync</Text>
+          <Text style={styles.sectionSubtext}>
+            Backup your profile permanently to Arweave, encrypted with your wallet. Decentralized & secure.
+          </Text>
+          
+          {lastSyncTime && (
+            <Text style={styles.lastSyncText}>
+              Last backup: {new Date(lastSyncTime).toLocaleString()}
+            </Text>
+          )}
+          
+          <View style={styles.syncButtons}>
+            <TouchableOpacity
+              style={[styles.syncButton, styles.backupButton]}
+              onPress={handleArweaveBackup}
+              disabled={isSyncing || !connected}
+            >
+              {isSyncing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.backupButtonText}>📤 Backup to Arweave</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.syncButton, styles.restoreButton]}
+              onPress={handleArweaveRestore}
+              disabled={isSyncing || !connected}
+            >
+              {isSyncing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.restoreButtonText}>📥 Restore</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          
+          {!connected && (
+            <Text style={styles.warningText}>⚠️ Connect a wallet above to enable Arweave sync</Text>
+          )}
+        </View>
+
         {/* ── Danger Zone ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -334,9 +504,7 @@ export default function ProfileScreen() {
                   keyboardType="decimal-pad"
                   value={currentBalance}
                   onChangeText={(text) => {
-                    // Allow: optional leading minus, digits, one decimal point
                     const cleaned = text.replace(/[^0-9.\-]/g, '');
-                    // Only one minus, only at the start
                     const parts = cleaned.split('-');
                     const safe = parts.length > 2
                       ? '-' + parts.slice(1).join('')
@@ -467,22 +635,15 @@ export default function ProfileScreen() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0e1a' },
   content: { padding: 20 },
   title: { fontSize: 32, fontWeight: 'bold', color: '#f4c430', marginBottom: 30 },
-
-  // ── Section ──
   section: { marginBottom: 30 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff' },
-
-  // ── Add button ──
   addButton: { backgroundColor: '#4ade80', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   addButtonText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
-
-  // ── Generic card / rows ──
   card: { backgroundColor: '#1a1f2e', padding: 16, borderRadius: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
   label: { fontSize: 16, color: '#a0a0a0' },
@@ -491,8 +652,6 @@ const styles = StyleSheet.create({
   valueGreen: { fontSize: 16, color: '#4ade80', fontWeight: '600' },
   valueBold: { fontSize: 16, color: '#f4c430', fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: '#2a2f3e', marginVertical: 8 },
-
-  // ── Bank account cards ──
   accountCard: {
     backgroundColor: '#1a1f2e',
     borderRadius: 12,
@@ -509,35 +668,29 @@ const styles = StyleSheet.create({
   accountRight: { alignItems: 'flex-end', gap: 4 },
   accountBalance: { fontSize: 18, fontWeight: 'bold', color: '#4ade80' },
   deleteButton: { fontSize: 18, color: '#ff4444', paddingHorizontal: 4 },
-
-  // Primary toggle
   primaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#2a2f3e' },
   primaryDot: { fontSize: 14, color: '#666' },
   primaryDotActive: { color: '#4ade80' },
   primaryLabel: { fontSize: 13, color: '#666' },
   primaryLabelActive: { color: '#4ade80', fontWeight: '600' },
-
-  // Total row
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2a2f3e' },
   totalLabel: { fontSize: 14, color: '#a0a0a0' },
   totalValue: { fontSize: 20, fontWeight: 'bold', color: '#4ade80' },
-
-  // Empty
   emptyText: { fontSize: 15, color: '#666', marginBottom: 4 },
   emptySubtext: { fontSize: 13, color: '#444' },
-
-  // ── Backup & Restore ──
   sectionSubtext: { fontSize: 13, color: '#666', marginBottom: 12, lineHeight: 18 },
   backupButton: { backgroundColor: '#4ade80', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   backupButtonText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 16 },
   restoreButton: { backgroundColor: '#60a5fa', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   restoreButtonText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 16 },
-
-  // ── Danger ──
   dangerButton: { backgroundColor: '#ff4444', padding: 16, borderRadius: 12, alignItems: 'center' },
   dangerButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-
-  // ════════ ADD MODAL ════════
+  // Arweave sync styles
+  lastSyncText: { fontSize: 12, color: '#4ade80', marginBottom: 12 },
+  syncButtons: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  syncButton: { flex: 1, padding: 16, borderRadius: 12, alignItems: 'center' },
+  warningText: { fontSize: 12, color: '#ff9f43', textAlign: 'center', marginTop: 8 },
+  // Modal styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#0a0e1a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
   modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#4ade80', marginBottom: 20 },
@@ -553,35 +706,28 @@ const styles = StyleSheet.create({
   },
   currencySymbol: { fontSize: 20, color: '#4ade80', marginRight: 8 },
   inputRowField: { flex: 1, fontSize: 20, color: '#ffffff', paddingVertical: 16 },
-
   typeButtons: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center' },
   typeButtonActive: { borderColor: '#4ade80', backgroundColor: '#1a2f1e' },
   typeButtonText: { fontSize: 14, color: '#666' },
   typeButtonTextActive: { color: '#4ade80', fontWeight: 'bold' },
-
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#2a2f3e', marginRight: 12, alignItems: 'center', justifyContent: 'center' },
   checkboxChecked: { backgroundColor: '#4ade80', borderColor: '#4ade80' },
   checkmark: { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
   checkboxLabel: { fontSize: 14, color: '#a0a0a0' },
-
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 20 },
   modalCancelButton: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center' },
   modalCancelText: { color: '#a0a0a0', fontSize: 16 },
   modalAddButton: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#4ade80', alignItems: 'center' },
   modalAddButtonDisabled: { opacity: 0.5 },
   modalAddText: { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
-
-  // ════════ BACKUP MODALS ════════
   modalSubtext: { fontSize: 14, color: '#a0a0a0', marginBottom: 16, lineHeight: 20 },
   modalButton: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#4ade80', alignItems: 'center' },
   modalButtonDisabled: { opacity: 0.5 },
   modalButtonText: { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
   modalCloseButton: { padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center', marginTop: 12 },
   modalCloseText: { color: '#a0a0a0', fontSize: 16 },
-
-  // ════════ DELETE CONFIRM ════════
   confirmOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 40 },
   confirmBox: { backgroundColor: '#1a1f2e', borderRadius: 16, padding: 24, width: '100%' },
   confirmTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', marginBottom: 10 },

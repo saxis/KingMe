@@ -7,6 +7,7 @@ A Solana mobile app that tracks your path to financial freedom using the "days o
 KingMe measures freedom not in percentages, but in **days** - how many days can your assets sustain your lifestyle?
 
 **Freedom Formula:**
+
 ```
 Freedom Days = How long your assets can cover (Obligations + Desires + Debt Service)
 ```
@@ -27,13 +28,13 @@ When your asset income >= your daily needs, you're **KINGED** 👑 - you have in
 
 ## Freedom States (Checkers Metaphor)
 
-| Days of Freedom | State | Visual |
-|----------------|-------|--------|
-| 0-30 days | **Drowning** 🌊 | Regular checker piece, underwater |
-| 30-180 days | **Struggling** 💪 | Swimming upward through water |
-| 180-730 days | **Breaking Surface** 🌅 | Head breaking through to air |
-| 730-3650 days | **Rising** ⬆️ | Standing on water, crown appearing |
-| 3650+ days / ∞ | **ENTHRONED** 👑 | Sitting on throne, crowned - KINGED! |
+| Days of Freedom | State                   | Visual                               |
+| --------------- | ----------------------- | ------------------------------------ |
+| 0-30 days       | **Drowning** 🌊         | Regular checker piece, underwater    |
+| 30-180 days     | **Struggling** 💪       | Swimming upward through water        |
+| 180-730 days    | **Breaking Surface** 🌅 | Head breaking through to air         |
+| 730-3650 days   | **Rising** ⬆️           | Standing on water, crown appearing   |
+| 3650+ days / ∞  | **ENTHRONED** 👑        | Sitting on throne, crowned - KINGED! |
 
 ## Tech Stack
 
@@ -92,25 +93,11 @@ EXPO_PUBLIC_CLAUDE_API_KEY=your_claude_api_key_here
 ```
 
 Get API keys:
+
 - **Helius**: https://helius.xyz (free tier available)
 - **Claude**: https://console.anthropic.com (API access)
 
-### 4. Add Avatar Images
-
-Generate 15 images using AI (Grok, Midjourney, etc.) and place them in `assets/images/`:
-
-**Filenames:**
-- `freedom-0-20-male-medium.png`
-- `freedom-20-40-male-medium.png`
-- `freedom-40-60-male-medium.png`
-- `freedom-60-80-male-medium.png`
-- `freedom-80-100-male-medium.png`
-- (Repeat for `female-medium` and `male-dark`)
-
-**Prompts for generation:**
-See the prompts in our conversation history - watercolor illustrations with checkers/throne theme.
-
-### 5. Run the App
+### 4. Run the App
 
 ```bash
 # Start Expo dev server
@@ -123,6 +110,7 @@ npx expo start
 ## Development Roadmap
 
 ### Phase 1: Core MVP (Hackathon - 5 weeks)
+
 - [x] Type definitions
 - [x] Freedom calculation logic
 - [x] Storage service (encrypted)
@@ -136,6 +124,7 @@ npx expo start
 - [ ] Basic UI/UX polish
 
 ### Phase 2: Enhanced Features (Post-hackathon)
+
 - [ ] One-tap staking (execute Solana transactions)
 - [ ] Achievement NFTs (mint on milestones)
 - [ ] Notification system
@@ -144,6 +133,7 @@ npx expo start
 - [ ] More avatar customization
 
 ### Phase 3: Premium Modules (Monetization)
+
 - [ ] Web app with Irys sync ($5-10/mo)
 - [ ] Real estate module
 - [ ] Leverage calculator
@@ -154,6 +144,7 @@ npx expo start
 ## Design Philosophy
 
 **For Kings, Not Peasants:**
+
 - Clean, masculine UI (dark mode default)
 - Data-forward, not cutesy
 - Respects user intelligence and agency
@@ -162,6 +153,7 @@ npx expo start
 - Gentle nudges, not nagging
 
 **Three Buckets:**
+
 1. **Obligations** - What you must spend (including daily living per diem)
 2. **Desires** - What you want to spend
 3. **Surplus** - What you deploy into assets

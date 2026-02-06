@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useStore } from '../../src/store/useStore';
 import type { Debt } from '../../src/types';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function DebtsScreen() {
   const router = useRouter();
@@ -67,6 +68,7 @@ export default function DebtsScreen() {
 
   return (
     <View style={styles.container}>
+      <ResponsiveContainer>
       <ScrollView style={styles.scrollView}>
         <Text style={styles.progress}>Step 4 of 4</Text>
         
@@ -144,7 +146,8 @@ export default function DebtsScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+        </ResponsiveContainer>
 
       <View style={styles.buttonContainer}>
         {debts.length === 0 && (

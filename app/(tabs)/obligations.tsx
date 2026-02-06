@@ -3,18 +3,25 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput 
 import { useState } from 'react';
 import { useStore } from '../../src/store/useStore';
 import type { Obligation } from '../../src/types';
+import { DailyExpenseTracker } from '../../src/components/DailyExpenseTracker';
 
 export default function ObligationsScreen() {
   const obligations = useStore((state) => state.obligations);
+  const bankAccounts = useStore((state) => state.bankAccounts);
   const addObligation = useStore((state) => state.addObligation);
   const removeObligation = useStore((state) => state.removeObligation);
+  const updateObligation = useStore((state) => state.updateObligation);
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingObligation, setEditingObligation] = useState<Obligation | null>(null);
+  const [obligationsExpanded, setObligationsExpanded] = useState(true);
+  const [expensesExpanded, setExpensesExpanded] = useState(true);
   
   // Form state
   const [name, setName] = useState('');
   const [payee, setPayee] = useState('');
   const [amount, setAmount] = useState('');
+  const [accountId, setAccountId] = useState('');
 
   const handleAddObligation = () => {
     if (!name || !amount) return;
@@ -26,6 +33,7 @@ export default function ObligationsScreen() {
       amount: parseFloat(amount),
       category: 'other',
       isRecurring: true,
+      bankAccountId: accountId || undefined,
     };
     
     addObligation(newObligation);
@@ -34,6 +42,44 @@ export default function ObligationsScreen() {
     setName('');
     setPayee('');
     setAmount('');
+    setAccountId('');
+    setShowAddModal(false);
+  };
+
+  const handleEditObligation = (obligation: Obligation) => {
+    setEditingObligation(obligation);
+    setName(obligation.name);
+    setPayee(obligation.payee);
+    setAmount(obligation.amount.toString());
+    setAccountId(obligation.bankAccountId || '');
+    setShowAddModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingObligation || !name || !amount) return;
+
+    updateObligation(editingObligation.id, {
+      name,
+      payee: payee || 'Various',
+      amount: parseFloat(amount),
+      bankAccountId: accountId || undefined,
+    });
+
+    // Reset
+    setEditingObligation(null);
+    setName('');
+    setPayee('');
+    setAmount('');
+    setAccountId('');
+    setShowAddModal(false);
+  };
+
+  const handleCloseModal = () => {
+    setEditingObligation(null);
+    setName('');
+    setPayee('');
+    setAmount('');
+    setAccountId('');
     setShowAddModal(false);
   };
 
@@ -53,50 +99,96 @@ export default function ObligationsScreen() {
 
         {/* Obligations List */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Obligations</Text>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setObligationsExpanded(!obligationsExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Your Obligations</Text>
+              <Text style={styles.collapseIcon}>{obligationsExpanded ? '▼' : '▶'}</Text>
+            </View>
             <TouchableOpacity
               style={styles.addButton}
-              onPress={() => setShowAddModal(true)}
+              onPress={(e) => {
+                e.stopPropagation();
+                setShowAddModal(true);
+              }}
             >
               <Text style={styles.addButtonText}>+ Add</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
 
-          {obligations.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No obligations yet</Text>
-              <Text style={styles.emptySubtext}>Tap "+ Add" to add your first obligation</Text>
-            </View>
-          ) : (
-            obligations.map((obligation) => (
-              <View key={obligation.id} style={styles.obligationCard}>
-                <View style={styles.obligationHeader}>
-                  <View>
-                    <Text style={styles.obligationName}>{obligation.name}</Text>
-                    <Text style={styles.obligationPayee}>Paid to: {obligation.payee}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => removeObligation(obligation.id)}>
-                    <Text style={styles.deleteButton}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.obligationAmount}>${obligation.amount.toFixed(2)}/month</Text>
+          {obligationsExpanded && (
+            obligations.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No obligations yet</Text>
+                <Text style={styles.emptySubtext}>Tap "+ Add" to add your first obligation</Text>
               </View>
-            ))
+            ) : (
+              obligations.map((obligation) => (
+                <TouchableOpacity 
+                  key={obligation.id} 
+                  style={styles.obligationCard}
+                  onPress={() => handleEditObligation(obligation)}
+                >
+                  <View style={styles.obligationHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.obligationName}>{obligation.name}</Text>
+                      <Text style={styles.obligationPayee}>Paid to: {obligation.payee}</Text>
+                      {obligation.bankAccountId && (
+                        <Text style={styles.obligationAccount}>
+                          💳 {bankAccounts.find(a => a.id === obligation.bankAccountId)?.name || 'Unknown Account'}
+                        </Text>
+                      )}
+                      {!obligation.bankAccountId && (
+                        <Text style={styles.obligationWarning}>⚠️ No account assigned</Text>
+                      )}
+                    </View>
+                    <TouchableOpacity 
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        removeObligation(obligation.id);
+                      }}
+                      style={styles.deleteButtonContainer}
+                    >
+                      <Text style={styles.deleteButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.obligationAmount}>${obligation.amount.toFixed(2)}/month</Text>
+                </TouchableOpacity>
+              ))
+            )
           )}
+        </View>
+
+        {/* Daily Expense Tracker */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeaderSingle}
+            onPress={() => setExpensesExpanded(!expensesExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Daily Expenses</Text>
+              <Text style={styles.collapseIcon}>{expensesExpanded ? '▼' : '▶'}</Text>
+            </View>
+          </TouchableOpacity>
+          {expensesExpanded && <DailyExpenseTracker obligations={obligations} />}
         </View>
       </ScrollView>
 
-      {/* Add Obligation Modal */}
+      {/* Add/Edit Obligation Modal */}
       <Modal
         visible={showAddModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={handleCloseModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Obligation</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>{editingObligation ? 'Edit Obligation' : 'Add Obligation'}</Text>
 
             <Text style={styles.label}>Name</Text>
             <TextInput
@@ -130,27 +222,59 @@ export default function ObligationsScreen() {
               <Text style={styles.period}>/month</Text>
             </View>
 
+            {/* Account Picker */}
+            <Text style={styles.label}>Paid From (Optional)</Text>
+            <Text style={styles.helperText}>Assign to a bank account to track in cashflow</Text>
+            {bankAccounts.length === 0 ? (
+              <Text style={styles.noAccountsWarning}>⚠️ No bank accounts yet. Add one in Profile first.</Text>
+            ) : (
+              <View style={styles.accountList}>
+                <TouchableOpacity
+                  style={[styles.accountOption, !accountId && styles.accountOptionActive]}
+                  onPress={() => setAccountId('')}
+                >
+                  <Text style={[styles.accountOptionName, !accountId && styles.accountOptionNameActive]}>
+                    None (Don't track in cashflow)
+                  </Text>
+                  {!accountId && <Text style={styles.checkMark}>✓</Text>}
+                </TouchableOpacity>
+                {bankAccounts.map((acct) => (
+                  <TouchableOpacity
+                    key={acct.id}
+                    style={[styles.accountOption, accountId === acct.id && styles.accountOptionActive]}
+                    onPress={() => setAccountId(acct.id)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.accountOptionName, accountId === acct.id && styles.accountOptionNameActive]}>
+                        {acct.name}
+                      </Text>
+                      <Text style={styles.accountOptionSub}>
+                        {acct.institution} · ${(acct.currentBalance ?? 0).toLocaleString()}
+                      </Text>
+                    </View>
+                    {accountId === acct.id && <Text style={styles.checkMark}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowAddModal(false);
-                  setName('');
-                  setPayee('');
-                  setAmount('');
-                }}
+                onPress={handleCloseModal}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.modalAddButton, (!name || !amount) && styles.modalAddButtonDisabled]}
-                onPress={handleAddObligation}
+                onPress={editingObligation ? handleSaveEdit : handleAddObligation}
                 disabled={!name || !amount}
               >
-                <Text style={styles.modalAddText}>Add</Text>
+                <Text style={styles.modalAddText}>{editingObligation ? 'Save' : 'Add'}</Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -198,6 +322,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
+  },
+  sectionHeaderSingle: {
+    marginBottom: 15,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  collapseIcon: {
+    fontSize: 14,
+    color: '#f4c430',
   },
   sectionTitle: {
     fontSize: 20,
@@ -274,7 +410,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    maxHeight: '70%',
+    maxHeight: '90%',
   },
   modalTitle: {
     fontSize: 24,
@@ -353,6 +489,69 @@ const styles = StyleSheet.create({
   modalAddText: {
     color: '#0a0e1a',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  obligationAccount: {
+    fontSize: 12,
+    color: '#4ade80',
+    marginTop: 4,
+  },
+  obligationWarning: {
+    fontSize: 12,
+    color: '#fb923c',
+    marginTop: 4,
+  },
+  deleteButtonContainer: {
+    padding: 4,
+  },
+  helperText: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 8,
+    marginTop: -4,
+  },
+  noAccountsWarning: {
+    fontSize: 14,
+    color: '#fb923c',
+    padding: 12,
+    backgroundColor: '#2a1a1e',
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  accountList: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  accountOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#2a2f3e',
+    backgroundColor: '#1a1f2e',
+  },
+  accountOptionActive: {
+    borderColor: '#f4c430',
+    backgroundColor: '#2a2620',
+  },
+  accountOptionName: {
+    fontSize: 15,
+    color: '#fff',
+    marginBottom: 2,
+  },
+  accountOptionNameActive: {
+    color: '#f4c430',
+    fontWeight: 'bold',
+  },
+  accountOptionSub: {
+    fontSize: 12,
+    color: '#666',
+  },
+  checkMark: {
+    fontSize: 18,
+    color: '#f4c430',
     fontWeight: 'bold',
   },
 });

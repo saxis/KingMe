@@ -1,16 +1,41 @@
 // KingMe - Type Definitions
 
-export type AvatarType = 'male-medium' | 'female-medium' | 'male-dark';
+export type AvatarType = 'male-medium' | 'female-medium';
 
 export type FreedomState = 'drowning' | 'struggling' | 'breaking' | 'rising' | 'enthroned';
 
-export interface Income {
-  salary: number; // annual active income
-  otherIncome: number; // annual (side gigs, consulting, etc.)
-  assetIncome: number; // auto-calculated from assets
+// Bank Accounts - Core financial tracking
+export interface BankAccount {
+  id: string;
+  name: string; // "Chase Checking", "Ally Savings"
+  type: 'checking' | 'savings' | 'investment';
+  currentBalance: number;
+  institution: string; // "Chase", "Ally", "Fidelity"
+  isPrimaryIncome: boolean; // Where paycheck goes
+  isLinked?: boolean; // For future Plaid integration
 }
 
-export type AssetType = 'crypto' | 'defi' | 'real_estate' | 'stocks' | 'business' | 'other';
+// Income sources that deposit into accounts
+export interface IncomeSource {
+  id: string;
+  source: 'salary' | 'freelance' | 'business' | 'trading' | 'other';
+  name: string; // "Acme Corp Salary", "Freelance - Client X"
+  amount: number; // Per deposit
+  frequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly' | 'quarterly';
+  bankAccountId: string; // Where it deposits
+  nextDepositDate?: string; // ISO date
+  dayOfMonth1?: number; // For twice_monthly (e.g., 1)
+  dayOfMonth2?: number; // For twice_monthly (e.g., 15)
+}
+
+export interface Income {
+  salary: number; // annual active income (deprecated - use incomeSources)
+  otherIncome: number; // annual (deprecated - use incomeSources)
+  assetIncome: number; // auto-calculated from assets
+  sources?: IncomeSource[]; // NEW - detailed income tracking
+}
+
+export type AssetType = 'crypto' | 'defi' | 'real_estate' | 'stocks' | 'business' | 'bank_account' | 'retirement' | 'other';
 
 export interface Asset {
   id: string;
@@ -18,7 +43,7 @@ export interface Asset {
   name: string;
   value: number; // current market value
   annualIncome: number; // what it generates per year
-  metadata: CryptoAsset | RealEstateAsset | StockAsset | BusinessAsset | OtherAsset;
+  metadata: CryptoAsset | RealEstateAsset | StockAsset | BusinessAsset | BankAsset | RetirementAsset | OtherAsset;
 }
 
 // Crypto-specific (auto-tracked via Solana)
@@ -65,14 +90,38 @@ export interface OtherAsset {
   description: string;
 }
 
-export type ObligationCategory = 'housing' | 'utilities' | 'insurance' | 'debt_service' | 'daily_living' | 'other';
+// Bank accounts as assets (checking/savings with interest)
+export interface BankAsset {
+  type: 'bank_account';
+  accountType: 'checking' | 'savings' | 'investment';
+  institution: string;
+  apy?: number; // Savings account interest
+  isEmergencyFund?: boolean;
+}
+
+// Retirement accounts (401k, IRA, etc.)
+export interface RetirementAsset {
+  type: 'retirement';
+  accountType: '401k' | 'roth_401k' | 'ira' | 'roth_ira';
+  institution: string;
+  contributionAmount: number;   // per pay period
+  contributionFrequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly'; // how often you contribute
+  employerMatchPercent?: number; // e.g. 4 means employer matches up to 4% of salary
+  employerMatchDollars?: number; // calculated monthly employer match in $
+}
+
+export type ObligationCategory = 'housing' | 'utilities' | 'insurance' | 'debt_service' | 'daily_living' | 'retirement' | 'other';
 
 export interface Obligation {
   id: string;
   name: string;
+  payee?: string; // Who gets paid
   amount: number; // monthly
   category: ObligationCategory;
   isRecurring: boolean;
+  bankAccountId?: string; // Which account pays this
+  autoPay?: boolean;
+  dueDate?: number; // Day of month (1-31)
 }
 
 export type DesirePriority = 'high' | 'medium' | 'low';
@@ -82,15 +131,26 @@ export interface Desire {
   name: string;
   estimatedCost: number;
   priority: DesirePriority;
+  category?: ObligationCategory;
   targetDate?: string; // ISO date string
+  purchasedAt?: string; // ISO date string - when actually bought
   notes?: string;
+  aiResearch?: {
+    researchedAt: string;
+    recommendation: string;
+    alternatives?: Array<{
+      name: string;
+      price: number;
+      reason: string;
+    }>;
+  };
   researchedProduct?: {
     name: string;
     price: number;
     url?: string;
     description?: string;
   };
-  createdAt: string;
+  createdAt?: string;
   completedAt?: string;
 }
 
@@ -101,6 +161,72 @@ export interface Debt {
   interestRate: number; // as decimal (0.07 for 7%)
   monthlyPayment: number;
   minimumPayment: number;
+  bankAccountId?: string; // Which account the payment comes out of
+}
+
+// ─── Paycheck Breakdown ──────────────────────────────────────────────────────
+// Complete paycheck waterfall: Gross → Pre-tax → Taxes → Post-tax → Net
+
+export type PreTaxDeductionType = 
+  | 'medical_coverage' 
+  | 'vision_coverage' 
+  | 'dental_coverage' 
+  | 'life_insurance' 
+  | 'add_insurance'  // AD&D
+  | '401k_contribution'  // This goes here now, NOT in post-tax
+  | 'other_pretax';
+
+export type TaxType = 
+  | 'federal_withholding' 
+  | 'social_security' 
+  | 'medicare' 
+  | 'state_withholding';  // AZ W/H, etc.
+
+export type PostTaxDeductionType = 
+  | '401k_loan'  // Loan repayment is POST-tax
+  | 'enhanced_ltd' 
+  | 'other_posttax';
+
+export interface PreTaxDeduction {
+  id: string;
+  name: string;
+  type: PreTaxDeductionType;
+  perPayPeriod: number;
+  frequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly';
+  notes?: string;
+}
+
+export interface Tax {
+  id: string;
+  name: string;  // "Federal W/H", "Social Security", "Medicare", "AZ W/H"
+  type: TaxType;
+  perPayPeriod: number;
+  frequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly';
+  notes?: string;
+}
+
+export interface PostTaxDeduction {
+  id: string;
+  name: string;
+  type: PostTaxDeductionType;
+  perPayPeriod: number;
+  frequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly';
+  notes?: string;
+}
+
+// DEPRECATED: keeping for backwards compatibility during migration
+// Pre-tax paycheck deductions: things taken out before net pay hits any account.
+// 401k contributions already live on RetirementAsset metadata.
+// This covers: 401k loan repayments, healthcare premiums, and anything else pre-tax.
+export type PaycheckDeductionType = 'retirement_loan' | 'healthcare' | 'other_pretax';
+
+export interface PaycheckDeduction {
+  id: string;
+  name: string;                  // "401k Loan Repayment", "Blue Cross Health Plan"
+  type: PaycheckDeductionType;
+  perPayPeriod: number;          // the actual amount taken each paycheck
+  frequency: 'weekly' | 'biweekly' | 'twice_monthly' | 'monthly';
+  notes?: string;                // e.g. "5-year repayment term"
 }
 
 export interface FreedomScoreHistory {
@@ -108,6 +234,65 @@ export interface FreedomScoreHistory {
   days: number;
   assetIncome: number;
   totalNeeds: number;
+}
+
+// ─── Drift Trading Tracker ───────────────────────────────────────────────────
+export type DriftTradeDirection = 'long' | 'short';
+export type DriftTradeAsset = 'ETH' | 'SOL' | 'BTC' | 'other';
+
+export interface DriftTrade {
+  id: string;
+  date: string;                     // ISO date string — when the trade closed
+  asset: DriftTradeAsset;
+  direction: DriftTradeDirection;
+  size: number;                     // position size in USD
+  entryPrice: number;               // $ per token
+  exitPrice: number;                // $ per token
+  pnlUsdc: number;                  // realized profit/loss in USDC (can be negative) — ACTUAL from Drift
+  fees?: number;                    // trading fees (theoretical PnL - actual PnL)
+  notes?: string;                   // optional — e.g. "caught the breakout", "stopped out"
+  allocation?: DriftProfitAllocation; // where the profit went (only relevant if pnlUsdc > 0)
+}
+
+// When you close a profitable trade, you allocate the USDC profit somewhere.
+// Tracks the waterfall: USDC profit → crypto.com card, bank, crypto buys, or stays in Drift.
+export interface DriftProfitAllocation {
+  toCryptoComCard: number;          // usually $175/day
+  toBankAccounts: number;           // USDC → bank transfer
+  toCryptoBuys: number;             // bought other tokens with the profit
+  leftInDrift: number;              // stayed as collateral, grows the account
+}
+
+// ─── Daily Expense Tracker ───────────────────────────────────────────────────
+// Optional: track every expense manually (alternative to using daily_living estimate)
+export type DailyExpenseCategory = 
+  | 'daily_spend'      // crypto.com card daily budget
+  | 'transfer'         // Xfer - moving money between accounts
+  | 'smoking'
+  | 'food_grocery'
+  | 'food_dad_lunch'   // separate from general dining out
+  | 'food_restaurants'
+  | 'medical'
+  | 'business'
+  | 'housing'
+  | 'utilities'
+  | 'transport'
+  | 'entertainment'
+  | 'other';
+
+export interface DailyExpense {
+  id: string;
+  date: string;                     // ISO date string
+  category: DailyExpenseCategory;
+  description: string;              // payee or note (e.g. "Circle K", "Per Diem")
+  amount: number;                   // positive = spent, negative = received/refund
+  notes?: string;
+}
+
+// Tracks the crypto.com card balance (topped up from USDC)
+export interface CryptoCardBalance {
+  currentBalance: number;           // current balance on the card
+  lastUpdated: string;              // ISO timestamp of last manual sync
 }
 
 export interface UserSettings {
@@ -119,11 +304,20 @@ export interface UserSettings {
 
 export interface UserProfile {
   wallets: string[]; // Solana pubkeys
+  bankAccounts: BankAccount[]; // NEW - core financial tracking
   income: Income;
   assets: Asset[]; // both auto-tracked and manual
   obligations: Obligation[];
   desires: Desire[];
   debts: Debt[];
+  paycheckDeductions: PaycheckDeduction[]; // DEPRECATED - use preTaxDeductions, taxes, postTaxDeductions instead
+  preTaxDeductions: PreTaxDeduction[];  // Medical, dental, 401k contributions, etc.
+  taxes: Tax[];  // Federal W/H, Social Security, Medicare, State W/H
+  postTaxDeductions: PostTaxDeduction[];  // 401k loan, Enhanced LTD, etc.
+  driftTrades: DriftTrade[];   // trading journal for Drift perpetuals
+  dailyExpenses: DailyExpense[]; // optional manual expense tracking
+  cryptoCardBalance: CryptoCardBalance; // crypto.com card balance tracker
+  expenseTrackingMode: 'estimate' | 'manual'; // estimate uses daily_living obligation, manual logs every expense
   freedomHistory: FreedomScoreHistory[];
   settings: UserSettings;
   lastSynced?: string; // ISO timestamp

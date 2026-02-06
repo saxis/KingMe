@@ -10,6 +10,14 @@
         }
       ]
     ],
-    "scheme": "kingme"
+    "scheme": "kingme",
+    "extra": {
+      "eas": {
+        "projectId": "8cbb5746-d804-4c96-b46d-3c20fb774cab"
+      }
+    },
+    "android": {
+      "package": "com.saxthefiver.kingme"
+    }
   }
 }

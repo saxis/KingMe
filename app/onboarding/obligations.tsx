@@ -3,11 +3,51 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useStore } from '../../src/store/useStore';
-import type { Obligation } from '../../src/types';
+import type { Obligation, BankAccount } from '../../src/types';
+
+function AccountPicker({ bankAccounts, value, onChange }: { bankAccounts: BankAccount[]; value: string; onChange: (id: string) => void }) {
+  return (
+    <>
+      <Text style={styles.label}>Which account pays this?</Text>
+      {bankAccounts.length === 0 ? (
+        <Text style={styles.noAccountsText}>⚠️ No bank accounts added yet</Text>
+      ) : (
+        <View style={styles.accountsList}>
+          <TouchableOpacity
+            style={[styles.accountOption, value === '' && styles.accountOptionSelected]}
+            onPress={() => onChange('')}
+          >
+            <Text style={[styles.accountOptionText, value === '' && styles.accountOptionTextSelected]}>
+              Not assigned
+            </Text>
+            {value === '' && <Text style={styles.accountOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+
+          {bankAccounts.map((account) => (
+            <TouchableOpacity
+              key={account.id}
+              style={[styles.accountOption, value === account.id && styles.accountOptionSelected]}
+              onPress={() => onChange(account.id)}
+            >
+              <View>
+                <Text style={[styles.accountOptionText, value === account.id && styles.accountOptionTextSelected]}>
+                  {account.name}
+                </Text>
+                <Text style={styles.accountOptionSub}>{account.institution} · ${account.currentBalance.toLocaleString()}</Text>
+              </View>
+              {value === account.id && <Text style={styles.accountOptionCheck}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </>
+  );
+}
 
 export default function ObligationsScreen() {
   const router = useRouter();
   const obligations = useStore((state) => state.obligations);
+  const bankAccounts = useStore((state) => state.bankAccounts);
   const addObligation = useStore((state) => state.addObligation);
   const removeObligation = useStore((state) => state.removeObligation);
   
@@ -18,7 +58,9 @@ export default function ObligationsScreen() {
   const [payee, setPayee] = useState('');
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
+  const [modalBankAccountId, setModalBankAccountId] = useState('');
   const [dailyAllowance, setDailyAllowance] = useState('');
+  const [dailyBankAccountId, setDailyBankAccountId] = useState('');
 
   const handleAddObligation = () => {
     if (!name || !amount) return;
@@ -30,6 +72,7 @@ export default function ObligationsScreen() {
       amount: parseFloat(amount),
       category: 'other',
       isRecurring: true,
+      ...(modalBankAccountId && { bankAccountId: modalBankAccountId }),
     };
     
     addObligation(newObligation);
@@ -39,6 +82,7 @@ export default function ObligationsScreen() {
     setPayee('');
     setAmount('');
     setFrequency('monthly');
+    setModalBankAccountId('');
     setShowAddModal(false);
   };
 
@@ -76,6 +120,7 @@ export default function ObligationsScreen() {
         amount: parseFloat(dailyAllowance) * 30, // Convert to monthly
         category: 'daily_living',
         isRecurring: true,
+        ...(dailyBankAccountId && { bankAccountId: dailyBankAccountId }),
       };
       // Check if it already exists
       const exists = obligations.find(o => o.id === 'daily-allowance');
@@ -84,7 +129,7 @@ export default function ObligationsScreen() {
       }
     }
     
-    router.push('/onboarding/debts');
+    router.push('/onboarding/cashflow-check');
   };
 
   return (
@@ -117,6 +162,9 @@ export default function ObligationsScreen() {
             <Text style={styles.calculation}>
               = ${(parseFloat(dailyAllowance) * 30).toFixed(0)}/month
             </Text>
+          )}
+          {dailyAllowance && (
+            <AccountPicker bankAccounts={bankAccounts} value={dailyBankAccountId} onChange={setDailyBankAccountId} />
           )}
         </View>
 
@@ -152,8 +200,15 @@ export default function ObligationsScreen() {
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.obligationPayee}>Paid to: {obligation.payee}</Text>
+                  {obligation.bankAccountId ? (
+                    <Text style={styles.obligationAccount}>
+                      💳 From {bankAccounts.find(a => a.id === obligation.bankAccountId)?.name || 'Unknown'}
+                    </Text>
+                  ) : (
+                    <Text style={styles.obligationAccountUnset}>No account assigned</Text>
+                  )}
                   <Text style={styles.obligationAmount}>
-                    ${obligation.amount.toFixed(2)}/{obligation.frequency}
+                    ${obligation.amount.toFixed(2)}/{obligation.frequency || 'monthly'}
                   </Text>
                 </View>
               ))}
@@ -280,6 +335,8 @@ export default function ObligationsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <AccountPicker bankAccounts={bankAccounts} value={modalBankAccountId} onChange={setModalBankAccountId} />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -589,5 +646,62 @@ const styles = StyleSheet.create({
     color: '#0a0e1a',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Account picker
+  noAccountsText: {
+    fontSize: 14,
+    color: '#ff6b6b',
+    padding: 12,
+    backgroundColor: '#2a1a1e',
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  accountsList: {
+    gap: 8,
+    marginTop: 4,
+  },
+  accountOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#2a2f3e',
+    backgroundColor: '#1a1f2e',
+  },
+  accountOptionSelected: {
+    borderColor: '#f4c430',
+    backgroundColor: '#2a2f1e',
+  },
+  accountOptionText: {
+    fontSize: 15,
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  accountOptionTextSelected: {
+    color: '#f4c430',
+    fontWeight: 'bold',
+  },
+  accountOptionSub: {
+    fontSize: 12,
+    color: '#666',
+  },
+  accountOptionCheck: {
+    fontSize: 18,
+    color: '#f4c430',
+    fontWeight: 'bold',
+  },
+  // Obligation account labels
+  obligationAccount: {
+    fontSize: 13,
+    color: '#4ade80',
+    marginBottom: 2,
+  },
+  obligationAccountUnset: {
+    fontSize: 13,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 2,
   },
 });

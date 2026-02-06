@@ -14,7 +14,7 @@ export default function WelcomeScreen() {
 
   const handleContinue = () => {
     setAvatarType(selectedAvatar);
-    router.push('/onboarding/income');
+    router.push('/onboarding/bank-accounts');
   };
 
   return (

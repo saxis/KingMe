@@ -61,11 +61,11 @@ export default function AssetsScreen() {
   };
 
   const handleContinue = () => {
-    router.push('/onboarding/obligations');
+    router.push('/onboarding/debts');
   };
 
   const handleSkip = () => {
-    router.push('/onboarding/obligations');
+    router.push('/onboarding/debts');
   };
 
   const getTypeLabel = (type: Asset['type']) => {

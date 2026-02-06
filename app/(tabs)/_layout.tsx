@@ -15,15 +15,7 @@ export default function TabLayout() {
           height: 60,
           paddingBottom: 8,
         },
-        headerStyle: {
-          backgroundColor: '#0a0e1a',
-          borderBottomWidth: 1,
-          borderBottomColor: '#1a1f2e',
-        },
-        headerTintColor: '#f4c430',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false, // This hides headers on all tabs
       }}
     >
       <Tabs.Screen
@@ -31,7 +23,13 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🏠</Text>,
-          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="income"
+        options={{
+          title: 'Income',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>💵</Text>,
         }}
       />
       <Tabs.Screen
@@ -46,6 +44,13 @@ export default function TabLayout() {
         options={{
           title: 'Obligations',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📋</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="trading"
+        options={{
+          title: 'Trading',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📈</Text>,
         }}
       />
       <Tabs.Screen

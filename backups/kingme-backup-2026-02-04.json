@@ -1,0 +1,1002 @@
+{
+  "version": "1.0.0",
+  "exportedAt": "2026-02-04T20:04:50.484Z",
+  "profile": {
+    "wallets": [
+      "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+    ],
+    "bankAccounts": [
+      {
+        "id": "1770143516417",
+        "name": "SoFi Checking",
+        "institution": "SoFi Bank",
+        "type": "checking",
+        "currentBalance": 736.06,
+        "isPrimaryIncome": false
+      },
+      {
+        "id": "1770143532799",
+        "name": "SoFi Savings",
+        "institution": "SoFi Bank",
+        "type": "savings",
+        "currentBalance": 64.54,
+        "isPrimaryIncome": false
+      },
+      {
+        "id": "1770143549327",
+        "name": "SoFi Joint Checking",
+        "institution": "SoFi Bank",
+        "type": "checking",
+        "currentBalance": 50.01,
+        "isPrimaryIncome": false
+      },
+      {
+        "id": "1770143569342",
+        "name": "SoFi Joint Savings",
+        "institution": "SoFi Bank",
+        "type": "savings",
+        "currentBalance": 5.01,
+        "isPrimaryIncome": false
+      },
+      {
+        "id": "1770143597702",
+        "name": "Wells Checking",
+        "institution": "Wells Fargo",
+        "type": "checking",
+        "currentBalance": 1602.45,
+        "isPrimaryIncome": true
+      },
+      {
+        "id": "1770143668808",
+        "name": "Crypto.com Cash ",
+        "institution": "Crypto.com",
+        "type": "investment",
+        "currentBalance": 320.06,
+        "isPrimaryIncome": false
+      }
+    ],
+    "income": {
+      "salary": 0,
+      "otherIncome": 0,
+      "assetIncome": 0,
+      "sources": [
+        {
+          "id": "1770143696838",
+          "source": "salary",
+          "name": "American Express",
+          "amount": 1500,
+          "frequency": "twice_monthly",
+          "bankAccountId": "1770143516417"
+        },
+        {
+          "id": "1770143711103",
+          "source": "salary",
+          "name": "American Express",
+          "amount": 1810,
+          "frequency": "twice_monthly",
+          "bankAccountId": "1770143597702"
+        },
+        {
+          "id": "drift_trading_income",
+          "source": "trading",
+          "name": "Drift Trading (This Month)",
+          "amount": 1159.59,
+          "frequency": "monthly",
+          "bankAccountId": "1770143668808"
+        }
+      ]
+    },
+    "assets": [
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-SOL",
+        "type": "crypto",
+        "name": "Solana",
+        "value": 2100,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "crypto",
+          "quantity": 2100,
+          "isStaked": false,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-So11111111111111111111111111111111111111112",
+        "type": "crypto",
+        "name": "SOL",
+        "value": 2100,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "crypto",
+          "tokenMint": "So11111111111111111111111111111111111111112",
+          "quantity": 10.5,
+          "isStaked": false,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "type": "crypto",
+        "name": "USDC",
+        "value": 5000,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "crypto",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "quantity": 5000,
+          "isStaked": false,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "type": "crypto",
+        "name": "BONK",
+        "value": 20,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "crypto",
+          "tokenMint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+          "quantity": 1000000,
+          "isStaked": false,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-Kamino-kamino-1",
+        "type": "defi",
+        "name": "Kamino - lending",
+        "value": 10000,
+        "annualIncome": 850.0000000000001,
+        "metadata": {
+          "type": "crypto",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "quantity": 10000,
+          "protocol": "Kamino",
+          "apy": 8.5,
+          "isStaked": false,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH-Marinade-marinade-1",
+        "type": "defi",
+        "name": "Marinade - staked",
+        "value": 10000,
+        "annualIncome": 720.0000000000001,
+        "metadata": {
+          "type": "crypto",
+          "tokenMint": "So11111111111111111111111111111111111111112",
+          "quantity": 50,
+          "protocol": "Marinade",
+          "apy": 7.2,
+          "isStaked": true,
+          "walletAddress": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"
+        }
+      },
+      {
+        "id": "1770187101781",
+        "name": "DFDV Stock",
+        "type": "stocks",
+        "value": 905,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "other",
+          "description": "DFDV Stock"
+        }
+      },
+      {
+        "id": "1770187150802",
+        "name": "American Express Stock",
+        "type": "stocks",
+        "value": 16423,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "other",
+          "description": "American Express Stock"
+        }
+      },
+      {
+        "id": "ret_1770187180615",
+        "type": "retirement",
+        "name": "401(k) — Principal ",
+        "value": 70427,
+        "annualIncome": 0,
+        "metadata": {
+          "type": "retirement",
+          "accountType": "401k",
+          "institution": "Principal ",
+          "contributionAmount": 947,
+          "contributionFrequency": "twice_monthly",
+          "employerMatchPercent": 6,
+          "employerMatchDollars": 461.6466
+        }
+      },
+      {
+        "id": "1770213294662",
+        "name": "Perena USD*",
+        "type": "crypto",
+        "value": 5804.505,
+        "annualIncome": 554.9106780000001,
+        "metadata": {
+          "type": "other",
+          "description": "Perena USD*"
+        }
+      }
+    ],
+    "obligations": [
+      {
+        "id": "1770175456779",
+        "name": "Starz Entertainment",
+        "payee": "Apple.com Bill",
+        "amount": 11.73,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175505977",
+        "name": "Fitbod + Fox One Monthly",
+        "payee": "Apple.com Bill",
+        "amount": 39.29,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175546453",
+        "name": "Geico",
+        "payee": "Geico Insurance",
+        "amount": 368.62,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175572356",
+        "name": "Patreon",
+        "payee": "Patreon",
+        "amount": 10.88,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175600793",
+        "name": "Paramount+",
+        "payee": "Apple.com Bill",
+        "amount": 13.31,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175649629",
+        "name": "Dashpass",
+        "payee": "Doordash",
+        "amount": 9.99,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175691234",
+        "name": "X Subscription",
+        "payee": "X Corp",
+        "amount": 8.7,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175729112",
+        "name": "ChatGPT - Annette",
+        "payee": "OpenAI",
+        "amount": 21.56,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175759054",
+        "name": "Google Storage",
+        "payee": "Google Inc",
+        "amount": 2.16,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175790401",
+        "name": "Apple One Family",
+        "payee": "Apple.com Bill",
+        "amount": 28.21,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175826702",
+        "name": "Amazon Prime",
+        "payee": "Amazon.com",
+        "amount": 15.99,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175847356",
+        "name": "Nintendo",
+        "payee": "Nintendo",
+        "amount": 4.33,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175870330",
+        "name": "Seba University",
+        "payee": "Seba University",
+        "amount": 19.99,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175896826",
+        "name": "Electric Bill",
+        "payee": "ED3 ",
+        "amount": 374.85,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175924507",
+        "name": "Water Bill",
+        "payee": "Global Water",
+        "amount": 131.97,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770175962682",
+        "name": "Cell Phone Bill",
+        "payee": "T-Mobile",
+        "amount": 323.51,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770176007052",
+        "name": "Akhu Orthodontist",
+        "payee": "Maricopa Kids Dentist",
+        "amount": 86.42,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      },
+      {
+        "id": "1770213875237",
+        "name": "Princess Vegas",
+        "payee": "Paypal",
+        "amount": 1543.8,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143597702"
+      },
+      {
+        "id": "1770213949265",
+        "name": "Annette Payment",
+        "payee": "Annette Cottingham",
+        "amount": 600,
+        "category": "other",
+        "isRecurring": true,
+        "bankAccountId": "1770143516417"
+      }
+    ],
+    "desires": [],
+    "debts": [
+      {
+        "id": "1770176314065",
+        "name": "Truck Loan",
+        "principal": 24247.6,
+        "monthlyPayment": 706,
+        "minimumPayment": 706,
+        "interestRate": 0,
+        "bankAccountId": "1770143597702"
+      },
+      {
+        "id": "1770176347736",
+        "name": "Solar Loan",
+        "principal": 39387.3,
+        "monthlyPayment": 286,
+        "minimumPayment": 286,
+        "interestRate": 0,
+        "bankAccountId": "1770143597702"
+      },
+      {
+        "id": "1770176389608",
+        "name": "Carrington Mortgage",
+        "principal": 237015.66,
+        "monthlyPayment": 1660,
+        "minimumPayment": 1660,
+        "interestRate": 0.035,
+        "bankAccountId": "1770143597702"
+      },
+      {
+        "id": "1770186944907",
+        "name": "Apple Card",
+        "principal": 1727.7,
+        "monthlyPayment": 500,
+        "minimumPayment": 500,
+        "interestRate": 0,
+        "bankAccountId": "1770143597702"
+      },
+      {
+        "id": "1770187013337",
+        "name": "Capital One Platinum",
+        "principal": 3913.28,
+        "monthlyPayment": 500,
+        "minimumPayment": 500,
+        "interestRate": 0,
+        "bankAccountId": "1770143597702"
+      }
+    ],
+    "paycheckDeductions": [],
+    "driftTrades": [
+      {
+        "id": "1770176809698",
+        "date": "2026-02-03T18:31:00.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 10653.85,
+        "entryPrice": 2130.77,
+        "exitPrice": 2140.67,
+        "pnlUsdc": -52.5,
+        "fees": 2.9999999999995453
+      },
+      {
+        "id": "1770176864465",
+        "date": "2026-02-03T18:22:00.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 10955.5,
+        "entryPrice": 2191.1,
+        "exitPrice": 2150.42,
+        "pnlUsdc": 200.38,
+        "fees": 3.019999999999186,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 200.38
+        }
+      },
+      {
+        "id": "1770176958693",
+        "date": "2026-02-03T18:06:00.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 10999.75,
+        "entryPrice": 2199.95,
+        "exitPrice": 2190.61,
+        "pnlUsdc": 43.53,
+        "fees": 3.1699999999984527,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 43.53
+        }
+      },
+      {
+        "id": "1770177037277",
+        "date": "2026-02-03T02:15:41.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 23371.100000000002,
+        "entryPrice": 2337.11,
+        "exitPrice": 2328.23,
+        "pnlUsdc": 82.21,
+        "fees": 6.590000000001098,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 82.21
+        }
+      },
+      {
+        "id": "1770177112771",
+        "date": "2026-02-02T20:17:13.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 11766.55,
+        "entryPrice": 2353.31,
+        "exitPrice": 2319.86,
+        "pnlUsdc": 163.94,
+        "fees": 3.309999999999093,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 163.94
+        }
+      },
+      {
+        "id": "1770177198922",
+        "date": "2026-02-02T14:35:16.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 11535.2,
+        "entryPrice": 2307.04,
+        "exitPrice": 2350.29,
+        "pnlUsdc": -219.59,
+        "fees": 3.3400000000000034
+      },
+      {
+        "id": "1770177298455",
+        "date": "2026-02-02T05:26:57.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 11301.25,
+        "entryPrice": 2260.25,
+        "exitPrice": 2189.66,
+        "pnlUsdc": 349.82,
+        "fees": 3.1300000000007344,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 349.82
+        }
+      },
+      {
+        "id": "1770177359171",
+        "date": "2026-02-02T03:21:19.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 15801.029999999999,
+        "entryPrice": 2257.29,
+        "exitPrice": 2198.76,
+        "pnlUsdc": 405.33,
+        "fees": 4.379999999998233,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 405.33
+        }
+      },
+      {
+        "id": "1770177424387",
+        "date": "2026-02-01T15:27:35.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 11647.7,
+        "entryPrice": 2329.54,
+        "exitPrice": 2308.69,
+        "pnlUsdc": 100.99,
+        "fees": 3.2599999999995504,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 100.99
+        }
+      },
+      {
+        "id": "1770212892105",
+        "date": "2026-02-04T00:00:00.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 11377.95,
+        "entryPrice": 2275.59,
+        "exitPrice": 2255.09,
+        "pnlUsdc": 99.3,
+        "fees": 3.200000000000003,
+        "notes": "I close this way too early. I had a TP set at 2190, but closed manually at 2255. It was down to 2204 an hour later. ",
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 99.3
+        }
+      },
+      {
+        "id": "1770224676895",
+        "date": "2026-02-04T00:00:00.000Z",
+        "asset": "ETH",
+        "direction": "short",
+        "size": 10887.95,
+        "entryPrice": 2177.59,
+        "exitPrice": 2150.12,
+        "pnlUsdc": 134.28,
+        "fees": 3.070000000001272,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 134.28
+        }
+      },
+      {
+        "id": "1770230887145",
+        "date": "2026-02-04T18:45:27.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 4303.54,
+        "entryPrice": 2151.77,
+        "exitPrice": 2158.71,
+        "pnlUsdc": 12.64,
+        "fees": 1.2400000000001086,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 12.64
+        }
+      },
+      {
+        "id": "1770230934158",
+        "date": "2026-02-03T14:54:16.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 11546.75,
+        "entryPrice": 2309.35,
+        "exitPrice": 2266.53,
+        "pnlUsdc": -217.37,
+        "fees": 3.2700000000014597
+      },
+      {
+        "id": "1770231028885",
+        "date": "2026-02-02T21:56:47.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 11650,
+        "entryPrice": 2330,
+        "exitPrice": 2337.58,
+        "pnlUsdc": 34.56,
+        "fees": 3.339999999999634,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 34.56
+        }
+      },
+      {
+        "id": "1770231084762",
+        "date": "2026-02-02T16:46:08.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 16621.5,
+        "entryPrice": 2374.5,
+        "exitPrice": 2358.49,
+        "pnlUsdc": -116.73,
+        "fees": 4.659999999998476
+      },
+      {
+        "id": "1770231173196",
+        "date": "2026-02-02T15:52:07.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 11731.35,
+        "entryPrice": 2346.27,
+        "exitPrice": 2368.48,
+        "pnlUsdc": 107.62,
+        "fees": 3.4300000000001774,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 107.62
+        }
+      },
+      {
+        "id": "1770231240344",
+        "date": "2026-02-02T14:02:47.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 11587.2,
+        "entryPrice": 2317.44,
+        "exitPrice": 2321.85,
+        "pnlUsdc": 18.74,
+        "fees": 3.309999999999274,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 18.74
+        }
+      },
+      {
+        "id": "1770231284567",
+        "date": "2026-02-01T15:40:45.000Z",
+        "asset": "ETH",
+        "direction": "long",
+        "size": 4594.02,
+        "entryPrice": 2297.01,
+        "exitPrice": 2303.89,
+        "pnlUsdc": 12.44,
+        "fees": 1.3199999999993093,
+        "allocation": {
+          "toCryptoComCard": 0,
+          "toBankAccounts": 0,
+          "toCryptoBuys": 0,
+          "leftInDrift": 12.44
+        }
+      }
+    ],
+    "dailyExpenses": [
+      {
+        "id": "1770175049933",
+        "date": "2026-02-03",
+        "category": "business",
+        "description": "Yahoo Mail Storage",
+        "amount": 2.17,
+        "notes": "Mom's Yahoo Account"
+      },
+      {
+        "id": "1770175086864",
+        "date": "2026-02-03",
+        "category": "smoking",
+        "description": "Circle K",
+        "amount": 61.58,
+        "notes": "Alva Khai plus a box of pops"
+      },
+      {
+        "id": "1770175110005",
+        "date": "2026-02-03",
+        "category": "food_restaurants",
+        "description": "Nando's Mexican Cafe",
+        "amount": 109.43,
+        "notes": "Lunch with Del and Annette"
+      },
+      {
+        "id": "1770175180090",
+        "date": "2026-02-02",
+        "category": "food_grocery",
+        "description": "Misfits Market",
+        "amount": 80.88
+      },
+      {
+        "id": "1770175201879",
+        "date": "2026-02-02",
+        "category": "smoking",
+        "description": "Circle K",
+        "amount": 12.44
+      },
+      {
+        "id": "1770175242640",
+        "date": "2026-02-02",
+        "category": "food_dad_lunch",
+        "description": "Jersey Mike's",
+        "amount": 6.42,
+        "notes": "Lunch paid for by my Jersey Mike's Points"
+      },
+      {
+        "id": "1770175303549",
+        "date": "2026-02-01T07:00:00.000Z",
+        "category": "daily_spend",
+        "description": "Rugiet Health",
+        "amount": 99
+      },
+      {
+        "id": "1770186617208",
+        "date": "2026-02-03T00:00:00.000Z",
+        "category": "daily_spend",
+        "description": "Per Diem",
+        "amount": -175
+      },
+      {
+        "id": "1770220775181",
+        "date": "2026-02-04T00:00:00.000Z",
+        "category": "daily_spend",
+        "description": "Per Diem",
+        "amount": -175
+      },
+      {
+        "id": "1770220799996",
+        "date": "2026-02-04T00:00:00.000Z",
+        "category": "other",
+        "description": "Shelby for taking AK",
+        "amount": 10
+      },
+      {
+        "id": "1770221858558",
+        "date": "2026-02-01",
+        "category": "food_grocery",
+        "description": "Fry's Foods",
+        "amount": 49.13
+      },
+      {
+        "id": "1770221888030",
+        "date": "2026-02-01",
+        "category": "housing",
+        "description": "All My Sons Moving Company",
+        "amount": 627.71
+      },
+      {
+        "id": "1770221915296",
+        "date": "2026-02-01",
+        "category": "daily_spend",
+        "description": "Cash Top up for movers",
+        "amount": -500
+      },
+      {
+        "id": "1770221941418",
+        "date": "2026-02-01",
+        "category": "food_dad_lunch",
+        "description": "Rili B's Taco Shop",
+        "amount": 10.91
+      },
+      {
+        "id": "1770221960926",
+        "date": "2026-02-01",
+        "category": "daily_spend",
+        "description": "Per Diem",
+        "amount": -175
+      },
+      {
+        "id": "1770221976189",
+        "date": "2026-02-01",
+        "category": "daily_spend",
+        "description": "Cash Top Up after movers",
+        "amount": -90
+      },
+      {
+        "id": "1770222968246",
+        "date": "2026-02-02",
+        "category": "daily_spend",
+        "description": "Per Diem",
+        "amount": -175
+      },
+      {
+        "id": "1770223002453",
+        "date": "2026-02-03",
+        "category": "daily_spend",
+        "description": "Circle K",
+        "amount": 18.46
+      },
+      {
+        "id": "1770223031759",
+        "date": "2026-02-04",
+        "category": "transport",
+        "description": "Circle K",
+        "amount": 55.24,
+        "notes": "Gas"
+      },
+      {
+        "id": "1770223059850",
+        "date": "2026-02-04",
+        "category": "smoking",
+        "description": "Circle K",
+        "amount": 8.69,
+        "notes": "Annette 5 Blacks"
+      }
+    ],
+    "cryptoCardBalance": {
+      "currentBalance": 267.26,
+      "lastUpdated": "2026-02-04T16:37:52.569Z"
+    },
+    "expenseTrackingMode": "manual",
+    "freedomHistory": [
+      {
+        "date": "2026-02-03T18:02:37.226Z",
+        "days": 0,
+        "assetIncome": 0,
+        "totalNeeds": 0
+      }
+    ],
+    "settings": {
+      "avatarType": "male-medium",
+      "notificationsEnabled": true,
+      "syncFrequency": "hourly",
+      "darkMode": true
+    },
+    "onboardingComplete": true,
+    "_isLoaded": true,
+    "preTaxDeductions": [
+      {
+        "id": "1770217252162",
+        "name": "Life Ins Imp Inc",
+        "type": "life_insurance",
+        "perPayPeriod": 71.88,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217280271",
+        "name": "Aetna Family Plan",
+        "type": "medical_coverage",
+        "perPayPeriod": 378.68,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217301817",
+        "name": "VisionCare",
+        "type": "vision_coverage",
+        "perPayPeriod": 17.6,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217323123",
+        "name": "Delta Dental",
+        "type": "dental_coverage",
+        "perPayPeriod": 44.5,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217339781",
+        "name": "Life Insurance",
+        "type": "life_insurance",
+        "perPayPeriod": 29.1,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217357938",
+        "name": "AD&D Pre-Tax",
+        "type": "add_insurance",
+        "perPayPeriod": 4.39,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217381151",
+        "name": "401k Contribution",
+        "type": "401k_contribution",
+        "perPayPeriod": 983.18,
+        "frequency": "twice_monthly"
+      }
+    ],
+    "taxes": [
+      {
+        "id": "1770217410026",
+        "name": "Federal W/H",
+        "type": "federal_withholding",
+        "perPayPeriod": 952.97,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217424735",
+        "name": "Social Security",
+        "type": "social_security",
+        "perPayPeriod": 410.64,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217440875",
+        "name": "Medicare",
+        "type": "medicare",
+        "perPayPeriod": 96.04,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217457951",
+        "name": "AZ W/H",
+        "type": "state_withholding",
+        "perPayPeriod": 194.89,
+        "frequency": "twice_monthly"
+      }
+    ],
+    "postTaxDeductions": [
+      {
+        "id": "1770217484406",
+        "name": "Enhanced Ltd",
+        "type": "enhanced_ltd",
+        "perPayPeriod": 39.74,
+        "frequency": "twice_monthly"
+      },
+      {
+        "id": "1770217506179",
+        "name": "401k Loan",
+        "type": "401k_loan",
+        "perPayPeriod": 563.08,
+        "frequency": "twice_monthly"
+      }
+    ],
+    "lastSynced": "2026-02-04T16:37:54.571Z"
+  }
+}

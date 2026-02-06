@@ -61,16 +61,19 @@ export function calculateAnnualObligations(profile: UserProfile): number {
 
 /**
  * Calculate total annual desires (annualized)
+ * NOTE: Desires do NOT affect freedom score unless they're actually purchased!
+ * This is just for tracking and planning purposes.
  */
 export function calculateAnnualDesires(profile: UserProfile): number {
-  // For desires with target dates, annualize them
-  // For desires without dates, spread over 1 year
+  // Desires should NOT be counted toward obligations
+  // They're wish list items, not actual expenses
+  // Only count them if they have a "purchasedAt" date
   return profile.desires.reduce((total, desire) => {
-    if (desire.completedAt) return total; // skip completed desires
-    
-    // Simple approach: divide by 1 year for now
-    // Can be enhanced to factor in target dates
-    return total + desire.estimatedCost;
+    // Only count if actually purchased
+    if (desire.purchasedAt && !desire.completedAt) {
+      return total + desire.estimatedCost;
+    }
+    return total;
   }, 0);
 }
 

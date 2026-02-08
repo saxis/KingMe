@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { useStore, useFreedomScore } from '../../src/store/useStore';
 import { WalletConnect } from '../../src/components/WalletConnect';
 import { useWallet } from '../../src/providers/wallet-provider';
-import { saveToArweave, loadLatestBackup } from '../../src/services/arweaveStorage';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import type { BankAccount } from '../../src/types';
+import { loadBackup, saveBackup } from '@/services/encryptedBackup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptProfileWithWallet, decryptProfileWithWallet } from './walletStorage';
+const BACKUP_API = process.env.EXPO_PUBLIC_BACKUP_API_URL || 'http://localhost:3000/api/backup';
 
 export default function ProfileScreen() {
   const income            = useStore((state) => state.income);
@@ -181,7 +184,7 @@ export default function ProfileScreen() {
         timestamp: new Date().toISOString(),
       };
       
-      const txId = await saveToArweave(profileData, signMessage, publicKey.toBase58());
+      const txId = await saveBackup(profileData, signMessage, publicKey.toBase58());
       
       setLastSyncTime(new Date().toISOString());
       
@@ -215,7 +218,7 @@ export default function ProfileScreen() {
             setIsSyncing(true);
             
             try {
-              const profileData = await loadLatestBackup(publicKey.toBase58(), signMessage);
+              const profileData = await loadBackup(publicKey.toBase58(), signMessage);
               
               useStore.setState({
                 bankAccounts: profileData.bankAccounts || [],
@@ -403,9 +406,9 @@ export default function ProfileScreen() {
 
         {/* ── Arweave Encrypted Sync ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🌐 Arweave Encrypted Sync</Text>
+          <Text style={styles.sectionTitle}>🌐 Encrypted Cloud Backup</Text>
           <Text style={styles.sectionSubtext}>
-            Backup your profile permanently to Arweave, encrypted with your wallet. Decentralized & secure.
+            Backup your profile permanently to encrypted cloud storage. Only you can decrypt it with your wallet.
           </Text>
           
           {lastSyncTime && (
@@ -423,7 +426,7 @@ export default function ProfileScreen() {
               {isSyncing ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.backupButtonText}>📤 Backup to Arweave</Text>
+                <Text style={styles.backupButtonText}>📤 Backup to Cloud (encrypted)</Text>
               )}
             </TouchableOpacity>
             

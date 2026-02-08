@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { FreedomScore } from '../../src/components/FreedomScore';
 import { useStore, useFreedomScore } from '../../src/store/useStore';
 import { analyzeAllAccounts } from '../../src/services/cashflow';
-import { fetchSKRHolding, calcSKRIncome, mockSKRHolding } from '../../src/services/skr';
+import { fetchSKRHolding, calcSKRIncome } from '../../src/services/skr';
 import type { SKRIncomeSnapshot } from '../../src/services/skr';
 
 // ─── Health badge colour map ────────────────────────────────────────────────

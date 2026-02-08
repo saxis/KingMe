@@ -18,13 +18,25 @@ export function WalletConnect() {
 
   // Connect wallet (works on both web and mobile)
   const handleConnect = async () => {
-  try {
-    // Connect via WalletProvider
-    await connect();
-    
-    // After successful connection, add to store
-    if (publicKey) {
-      const address = publicKey.toBase58();
+    try {
+      // Connect via WalletProvider
+      await connect();
+      
+      // After connect(), the provider state is updated
+      // We need to wait for the next render cycle
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Now publicKey should be available from the hook
+      // But since we're in a callback, we need to force check
+      const currentPubKey = publicKey; // This will be updated after the timeout
+      
+      if (!currentPubKey) {
+        console.error('No public key after connection');
+        Alert.alert('Connection Error', 'Failed to get wallet address');
+        return;
+      }
+      
+      const address = currentPubKey.toBase58();
       
       // Check if already in store
       const currentWallets = useStore.getState().wallets;
@@ -46,14 +58,14 @@ export function WalletConnect() {
         'Wallet Connected! 📱',
         `Successfully connected ${address.slice(0, 4)}...${address.slice(-4)}`
       );
+    } catch (error: any) {
+      console.error('Connection error:', error);
+      if (!error.message?.includes('User rejected')) {
+        Alert.alert('Connection Failed', error.message || 'Failed to connect wallet');
+      }
     }
-  } catch (error: any) {
-    console.error('Connection error:', error);
-    if (!error.message?.includes('User rejected')) {
-      Alert.alert('Connection Failed', error.message || 'Failed to connect wallet');
-    }
-  }
-};
+  };
+  
 
   const handleSync = async (walletAddress?: string) => {
     setIsSyncing(true);
@@ -185,7 +197,7 @@ export function WalletConnect() {
         )}
       </View>
 
-      {wallets.length === 0 ? (
+      {wallets.length === 0 && !connected ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No wallets connected</Text>
           <Text style={styles.emptySubtext}>
@@ -194,34 +206,56 @@ export function WalletConnect() {
         </View>
       ) : (
         <View style={styles.walletsList}>
-          {wallets.map((address) => (
-            <View key={address} style={styles.walletCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.walletAddress}>
-                  {address.slice(0, 4)}...{address.slice(-4)}
-                </Text>
-                <View style={styles.walletLabels}>
-                  <Text style={styles.walletLabel}>Connected</Text>
-                  {isActiveWallet(address) && (
-                    <View style={styles.activeBadge}>
-                      <Text style={styles.activeText}>
-                        {Platform.OS === 'web' ? '🦊 Active' : '📱 Active'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <TouchableOpacity 
-                onPress={() => handleDisconnectClick(address)}
-                style={styles.disconnectButtonContainer}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.disconnectButton}>Disconnect</Text>
-              </TouchableOpacity>
+    {/* Show wallet from provider if connected but not in store yet */}
+    {connected && publicKey && !wallets.includes(publicKey.toBase58()) && (
+      <View style={styles.walletCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.walletAddress}>
+            {publicKey.toBase58().slice(0, 4)}...{publicKey.toBase58().slice(-4)}
+          </Text>
+          <View style={styles.walletLabels}>
+            <Text style={styles.walletLabel}>Syncing...</Text>
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeText}>
+                {Platform.OS === 'web' ? '🦊 Active' : '📱 Active'}
+              </Text>
             </View>
-          ))}
+          </View>
         </View>
-      )}
+      </View>
+    )}
+    
+    {/* Show wallets from store */}
+    {wallets.map((address) => (
+      <View key={address} style={styles.walletCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.walletAddress}>
+            {address.slice(0, 4)}...{address.slice(-4)}
+          </Text>
+          <View style={styles.walletLabels}>
+            <Text style={styles.walletLabel}>Connected</Text>
+            {isActiveWallet(address) && (
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeText}>
+                  {Platform.OS === 'web' ? '🦊 Active' : '📱 Active'}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity 
+          onPress={() => handleDisconnectClick(address)}
+          style={styles.disconnectButtonContainer}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.disconnectButton}>Disconnect</Text>
+        </TouchableOpacity>
+      </View>
+    ))}
+  </View>
+)}  
+          
+            
 
       <TouchableOpacity
         style={styles.connectButton}

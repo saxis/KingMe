@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput 
 import { useState } from 'react';
 import { useStore } from '../../src/store/useStore';
 import type { Obligation } from '../../src/types';
-import { DailyExpenseTracker } from '../../src/components/DailyExpenseTracker';
 
 export default function ObligationsScreen() {
   const obligations = useStore((state) => state.obligations);
@@ -14,8 +13,6 @@ export default function ObligationsScreen() {
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingObligation, setEditingObligation] = useState<Obligation | null>(null);
-  const [obligationsExpanded, setObligationsExpanded] = useState(true);
-  const [expensesExpanded, setExpensesExpanded] = useState(true);
   
   // Form state
   const [name, setName] = useState('');
@@ -99,82 +96,55 @@ export default function ObligationsScreen() {
 
         {/* Obligations List */}
         <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.sectionHeader}
-            onPress={() => setObligationsExpanded(!obligationsExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Your Obligations</Text>
-              <Text style={styles.collapseIcon}>{obligationsExpanded ? '▼' : '▶'}</Text>
-            </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Obligations</Text>
             <TouchableOpacity
               style={styles.addButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                setShowAddModal(true);
-              }}
+              onPress={() => setShowAddModal(true)}
             >
               <Text style={styles.addButtonText}>+ Add</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
 
-          {obligationsExpanded && (
-            obligations.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No obligations yet</Text>
-                <Text style={styles.emptySubtext}>Tap "+ Add" to add your first obligation</Text>
-              </View>
-            ) : (
-              obligations.map((obligation) => (
-                <TouchableOpacity 
-                  key={obligation.id} 
-                  style={styles.obligationCard}
-                  onPress={() => handleEditObligation(obligation)}
-                >
-                  <View style={styles.obligationHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.obligationName}>{obligation.name}</Text>
-                      <Text style={styles.obligationPayee}>Paid to: {obligation.payee}</Text>
-                      {obligation.bankAccountId && (
-                        <Text style={styles.obligationAccount}>
-                          💳 {bankAccounts.find(a => a.id === obligation.bankAccountId)?.name || 'Unknown Account'}
-                        </Text>
-                      )}
-                      {!obligation.bankAccountId && (
-                        <Text style={styles.obligationWarning}>⚠️ No account assigned</Text>
-                      )}
-                    </View>
-                    <TouchableOpacity 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        removeObligation(obligation.id);
-                      }}
-                      style={styles.deleteButtonContainer}
-                    >
-                      <Text style={styles.deleteButton}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.obligationAmount}>${obligation.amount.toFixed(2)}/month</Text>
-                </TouchableOpacity>
-              ))
-            )
-          )}
-        </View>
-
-        {/* Daily Expense Tracker */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeaderSingle}
-            onPress={() => setExpensesExpanded(!expensesExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Daily Expenses</Text>
-              <Text style={styles.collapseIcon}>{expensesExpanded ? '▼' : '▶'}</Text>
+          {obligations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No obligations yet</Text>
+              <Text style={styles.emptySubtext}>Tap "+ Add" to add your first obligation</Text>
             </View>
-          </TouchableOpacity>
-          {expensesExpanded && <DailyExpenseTracker obligations={obligations} />}
+          ) : (
+            obligations.map((obligation) => (
+              <TouchableOpacity 
+                key={obligation.id} 
+                style={styles.obligationCard}
+                onPress={() => handleEditObligation(obligation)}
+              >
+                <View style={styles.obligationHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.obligationName}>{obligation.name}</Text>
+                    <Text style={styles.obligationPayee}>Paid to: {obligation.payee}</Text>
+                    {obligation.bankAccountId && (
+                      <Text style={styles.obligationAccount}>
+                        💳 {bankAccounts.find(a => a.id === obligation.bankAccountId)?.name || 'Unknown Account'}
+                      </Text>
+                    )}
+                    {!obligation.bankAccountId && (
+                      <Text style={styles.obligationWarning}>⚠️ No account assigned</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      removeObligation(obligation.id);
+                    }}
+                    style={styles.deleteButtonContainer}
+                  >
+                    <Text style={styles.deleteButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.obligationAmount}>${obligation.amount.toFixed(2)}/month</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -322,18 +292,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
-  },
-  sectionHeaderSingle: {
-    marginBottom: 15,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  collapseIcon: {
-    fontSize: 14,
-    color: '#f4c430',
   },
   sectionTitle: {
     fontSize: 20,

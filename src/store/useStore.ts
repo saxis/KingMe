@@ -1,6 +1,6 @@
 // src/store/useStore.ts
 import { create } from 'zustand';
-import type { UserProfile, Asset, Obligation, Desire, Debt, Income, BankAccount, IncomeSource, AvatarType, PaycheckDeduction, DriftTrade, DailyExpense, CryptoCardBalance, PreTaxDeduction, Tax, PostTaxDeduction } from '../types';
+import type { UserProfile, Asset, Obligation, Desire, Debt, Income, BankAccount, IncomeSource, AvatarType, PaycheckDeduction, DriftTrade, DailyExpense, CryptoCardBalance, PreTaxDeduction, Tax, PostTaxDeduction, UserSettings } from '../types';
 import { saveUserProfile, loadUserProfile } from '../services/storage';
 import { calculateFreedom } from '../utils/calculations';
 import { syncDriftIncomeSource, getDefaultDriftIncomeAccount } from '../services/drift-income-sync';
@@ -83,6 +83,7 @@ const initialState: UserProfile = {
     notificationsEnabled: true,
     syncFrequency: 'hourly',
     darkMode: true,
+    defaultExpandAssetSections: false,
   },
   onboardingComplete: false,
 };
@@ -95,6 +96,12 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => ({
       settings: { ...state.settings, avatarType },
     })),
+
+  updateSettings: (settings: Partial<UserSettings>) => {
+    set((state) => ({
+      settings: { ...state.settings, ...settings },
+    }));
+  },
 
   setIncome: (income) =>
     set((state) => ({
@@ -294,7 +301,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Auto-sync: update income sources with this month's PnL
       const defaultAccount = getDefaultDriftIncomeAccount(state.bankAccounts);
       const updatedIncomeSources = syncDriftIncomeSource(newTrades, state.income.sources || [], defaultAccount);
-      
+
       return {
         driftTrades: newTrades,
         income: { ...state.income, sources: updatedIncomeSources },
@@ -307,7 +314,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Auto-sync: recalculate monthly PnL after removal
       const defaultAccount = getDefaultDriftIncomeAccount(state.bankAccounts);
       const updatedIncomeSources = syncDriftIncomeSource(newTrades, state.income.sources || [], defaultAccount);
-      
+
       return {
         driftTrades: newTrades,
         income: { ...state.income, sources: updatedIncomeSources },
@@ -322,7 +329,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Auto-sync: recalculate monthly PnL after update
       const defaultAccount = getDefaultDriftIncomeAccount(state.bankAccounts);
       const updatedIncomeSources = syncDriftIncomeSource(newTrades, state.income.sources || [], defaultAccount);
-      
+
       return {
         driftTrades: newTrades,
         income: { ...state.income, sources: updatedIncomeSources },
@@ -333,10 +340,10 @@ export const useStore = create<AppState>((set, get) => ({
   addDailyExpense: (expense) =>
     set((state) => {
       // Auto-deduct from crypto.com card balance when expense is positive (spent)
-      const newBalance = expense.amount > 0 
+      const newBalance = expense.amount > 0
         ? state.cryptoCardBalance.currentBalance - expense.amount
         : state.cryptoCardBalance.currentBalance + Math.abs(expense.amount); // refunds add back
-      
+
       return {
         dailyExpenses: [...(state.dailyExpenses || []), expense],
         cryptoCardBalance: {
@@ -350,12 +357,12 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const expenseToRemove = (state.dailyExpenses || []).find((e) => e.id === expenseId);
       if (!expenseToRemove) return state;
-      
+
       // Restore the amount back to the card balance
       const restoredBalance = expenseToRemove.amount > 0
         ? state.cryptoCardBalance.currentBalance + expenseToRemove.amount
         : state.cryptoCardBalance.currentBalance - Math.abs(expenseToRemove.amount);
-      
+
       return {
         dailyExpenses: (state.dailyExpenses || []).filter((e) => e.id !== expenseId),
         cryptoCardBalance: {
@@ -393,7 +400,7 @@ export const useStore = create<AppState>((set, get) => ({
         description: description || 'Card top-up from USDC',
         amount: -amount, // negative = received
       };
-      
+
       return {
         dailyExpenses: [...(state.dailyExpenses || []), deposit],
         cryptoCardBalance: {
@@ -405,7 +412,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   completeOnboarding: async () => {
     const state = get();
-    
+
     // Calculate and save freedom score
     const freedom = calculateFreedom(state);
     const newHistory = [
@@ -495,7 +502,7 @@ export const useStore = create<AppState>((set, get) => ({
         onboardingComplete: state.onboardingComplete,
         lastSynced: new Date().toISOString(),
       };
-      
+
       // For now, save unencrypted until we add wallet
       const profileJson = JSON.stringify(profile);
       const AsyncStorage = await import('@react-native-async-storage/async-storage');
@@ -556,7 +563,7 @@ export const useFreedomScore = () => {
     desires: state.desires,
     debts: state.debts,
   }));
-  
+
   return calculateFreedom(profile as UserProfile);
 };
 
@@ -570,7 +577,7 @@ let saveTimeout: NodeJS.Timeout;
 useStore.subscribe((state) => {
   if (!state._isLoaded) return; // don't save until first load is done
   if (Date.now() - APP_START_TIME < MIN_STARTUP_DELAY) return; // don't save during startup window
-  
+
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
     state.saveProfile();

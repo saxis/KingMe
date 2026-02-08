@@ -1,8 +1,8 @@
 // app/(tabs)/trading.tsx
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useState, useMemo } from 'react';
-import { useStore } from '../../src/store/useStore';
-import type { DriftTrade, DriftTradeDirection, DriftTradeAsset } from '../../src/types';
+import { useStore } from '../src/store/useStore';
+import type { DriftTrade, DriftTradeDirection, DriftTradeAsset } from '../src/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function formatDate(isoDate: string): string {

@@ -1,11 +1,12 @@
-// app/(tabs)/income.tsx
+// app/(tabs)/income.tsx - Simplified income sources only
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import { useStore } from '../../src/store/useStore';
 import { getMonthlyPreTaxDeductions } from '../../src/services/cashflow';
 import { fetchSKRHolding, calcSKRIncome } from '../../src/services/skr';
-//import type { IncomeSource, PaycheckDeduction, PaycheckDeductionType } from '../../src/types';
-import type { IncomeSource, PaycheckDeduction, PaycheckDeductionType, PreTaxDeduction, PreTaxDeductionType, Tax, TaxType, PostTaxDeduction, PostTaxDeductionType } from '../../src/types';
+import PaycheckBreakdownModal from '../paycheck';
+import type { IncomeSource } from '../../src/types';
 import type { SKRHolding, SKRIncomeSnapshot } from '../../src/services/skr';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -20,7 +21,6 @@ function toMonthly(amount: number, freq: string): number {
   }
 }
 
-// Sources that come from a paycheck (pre-tax deductions apply)
 const PAYCHECK_SOURCES = new Set<string>(['salary', 'freelance', 'business']);
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -31,12 +31,6 @@ const SOURCE_LABELS: Record<string, string> = {
   other:     '💰 Other',
 };
 
-const DEDUCTION_LABELS: Record<PaycheckDeductionType, string> = {
-  retirement_loan: '🏛️ 401k Loan',
-  healthcare:      '🏥 Healthcare',
-  other_pretax:    '📋 Other Pre-Tax',
-};
-
 const FREQ_LABELS: Record<string, string> = {
   weekly: 'Weekly',
   biweekly: 'Bi-weekly',
@@ -45,49 +39,21 @@ const FREQ_LABELS: Record<string, string> = {
   quarterly: 'Quarterly',
 };
 
-const PRETAX_LABELS: Record<PreTaxDeductionType, string> = {
-  medical_coverage: '🏥 Medical',
-  vision_coverage: '👓 Vision',
-  dental_coverage: '🦷 Dental',
-  life_insurance: '🛡️ Life Insurance',
-  add_insurance: '🚑 AD&D',
-  '401k_contribution': '💰 401k Contribution',
-  other_pretax: '📋 Other Pre-Tax',
-};
-
-const TAX_LABELS: Record<TaxType, string> = {
-  federal_withholding: '🇺🇸 Federal W/H',
-  social_security: '👴 Social Security',
-  medicare: '🏥 Medicare',
-  state_withholding: '🏛️ State W/H',
-};
-
-const POSTTAX_LABELS: Record<PostTaxDeductionType, string> = {
-  '401k_loan': '🏛️ 401k Loan',
-  enhanced_ltd: '🛡️ Enhanced LTD',
-  other_posttax: '📋 Other Post-Tax',
-};
-
-// ─── component ────────────────────────────────────────────────────────────────
 export default function IncomeScreen() {
+  const router = useRouter();
+  
   // ── store ───────────────────────────────────────────────────────────────────
   const incomeSources           = useStore((s) => s.income.sources || []);
   const bankAccounts            = useStore((s) => s.bankAccounts);
   const assets                  = useStore((s) => s.assets);
-  const paycheckDeductions      = useStore((s) => s.paycheckDeductions || []);
   const addIncomeSource         = useStore((s) => s.addIncomeSource);
   const removeIncomeSource      = useStore((s) => s.removeIncomeSource);
-  const addPaycheckDeduction    = useStore((s) => s.addPaycheckDeduction);
-  const removePaycheckDeduction = useStore((s) => s.removePaycheckDeduction);
-  const preTaxDeductions      = useStore((s) => s.preTaxDeductions || []);
-  const taxes                 = useStore((s) => s.taxes || []);
-  const postTaxDeductions     = useStore((s) => s.postTaxDeductions || []);
-  const addPreTaxDeduction    = useStore((s) => s.addPreTaxDeduction);
-  const removePreTaxDeduction = useStore((s) => s.removePreTaxDeduction);
-  const addTax                = useStore((s) => s.addTax);
-  const removeTax             = useStore((s) => s.removeTax);
-  const addPostTaxDeduction   = useStore((s) => s.addPostTaxDeduction);
-  const removePostTaxDeduction = useStore((s) => s.removePostTaxDeduction);
+  const preTaxDeductions        = useStore((s) => s.preTaxDeductions || []);
+  const taxes                   = useStore((s) => s.taxes || []);
+  const postTaxDeductions       = useStore((s) => s.postTaxDeductions || []);
+
+  // ── Paycheck breakdown modal ────────────────────────────────────────────────
+  const [selectedPaycheck, setSelectedPaycheck] = useState<IncomeSource | null>(null);
 
   // ── SKR staking yield (auto-detected) ─────────────────────────────────────
   const wallets = useStore((s) => s.wallets);
@@ -117,35 +83,6 @@ export default function IncomeScreen() {
   const [srcFreq, setSrcFreq]                 = useState<IncomeSource['frequency']>('biweekly');
   const [srcAccountId, setSrcAccountId]       = useState('');
 
-  // ── deduction modal state ───────────────────────────────────────────────────
-  const [showDeductionModal, setShowDeductionModal] = useState(false);
-  const [dedName, setDedName]                       = useState('');
-  const [dedType, setDedType]                       = useState<PaycheckDeductionType>('healthcare');
-  const [dedAmount, setDedAmount]                   = useState('');
-  const [dedFreq, setDedFreq]                       = useState<PaycheckDeduction['frequency']>('biweekly');
-  const [dedNotes, setDedNotes]                     = useState('');
-
-  // ── pre-tax deduction modal ─────────────────────────────────────────────
-  const [showPreTaxModal, setShowPreTaxModal] = useState(false);
-  const [preTaxName, setPreTaxName] = useState('');
-  const [preTaxType, setPreTaxType] = useState<PreTaxDeductionType>('medical_coverage');
-  const [preTaxAmount, setPreTaxAmount] = useState('');
-  const [preTaxFreq, setPreTaxFreq] = useState<'weekly' | 'biweekly' | 'twice_monthly' | 'monthly'>('biweekly');
-
-  // ── tax modal ───────────────────────────────────────────────────────────
-  const [showTaxModal, setShowTaxModal] = useState(false);
-  const [taxName, setTaxName] = useState('');
-  const [taxType, setTaxType] = useState<TaxType>('federal_withholding');
-  const [taxAmount, setTaxAmount] = useState('');
-  const [taxFreq, setTaxFreq] = useState<'weekly' | 'biweekly' | 'twice_monthly' | 'monthly'>('biweekly');
-
-  // ── post-tax deduction modal ────────────────────────────────────────────
-  const [showPostTaxModal, setShowPostTaxModal] = useState(false);
-  const [postTaxName, setPostTaxName] = useState('');
-  const [postTaxType, setPostTaxType] = useState<PostTaxDeductionType>('401k_loan');
-  const [postTaxAmount, setPostTaxAmount] = useState('');
-  const [postTaxFreq, setPostTaxFreq] = useState<'weekly' | 'biweekly' | 'twice_monthly' | 'monthly'>('biweekly');
-
   // ── handlers ────────────────────────────────────────────────────────────────
   const handleAddIncome = () => {
     if (!srcName || !srcAmount || !srcAccountId) return;
@@ -159,59 +96,6 @@ export default function IncomeScreen() {
     });
     setSrcName(''); setSrcAmount(''); setSrcType('salary'); setSrcFreq('biweekly'); setSrcAccountId('');
     setShowIncomeModal(false);
-  };
-
-  const handleAddDeduction = () => {
-    if (!dedName || !dedAmount) return;
-    addPaycheckDeduction({
-      id: Date.now().toString(),
-      name: dedName,
-      type: dedType,
-      perPayPeriod: parseFloat(dedAmount),
-      frequency: dedFreq,
-      notes: dedNotes || undefined,
-    });
-    setDedName(''); setDedAmount(''); setDedType('healthcare'); setDedFreq('biweekly'); setDedNotes('');
-    setShowDeductionModal(false);
-  };
-
-  const handleAddPreTax = () => {
-    if (!preTaxName || !preTaxAmount) return;
-    addPreTaxDeduction({
-      id: Date.now().toString(),
-      name: preTaxName,
-      type: preTaxType,
-      perPayPeriod: parseFloat(preTaxAmount),
-      frequency: preTaxFreq,
-    });
-    setPreTaxName(''); setPreTaxAmount(''); setPreTaxType('medical_coverage'); setPreTaxFreq('biweekly');
-    setShowPreTaxModal(false);
-  };
-
-  const handleAddTax = () => {
-    if (!taxName || !taxAmount) return;
-    addTax({
-      id: Date.now().toString(),
-      name: taxName,
-      type: taxType,
-      perPayPeriod: parseFloat(taxAmount),
-      frequency: taxFreq,
-    });
-    setTaxName(''); setTaxAmount(''); setTaxType('federal_withholding'); setTaxFreq('biweekly');
-    setShowTaxModal(false);
-  };
-
-  const handleAddPostTax = () => {
-    if (!postTaxName || !postTaxAmount) return;
-    addPostTaxDeduction({
-      id: Date.now().toString(),
-      name: postTaxName,
-      type: postTaxType,
-      perPayPeriod: parseFloat(postTaxAmount),
-      frequency: postTaxFreq,
-    });
-    setPostTaxName(''); setPostTaxAmount(''); setPostTaxType('401k_loan'); setPostTaxFreq('biweekly');
-    setShowPostTaxModal(false);
   };
 
   // ── derived numbers ─────────────────────────────────────────────────────────
@@ -228,28 +112,10 @@ export default function IncomeScreen() {
     return { paycheckSources: paycheck, otherSources: other, paycheckMonthly: paycheckM, otherMonthly: otherM };
   }, [incomeSources]);
 
-  // Calculate NEW paycheck waterfall
   const preTaxMonthly = preTaxDeductions.reduce((sum, d) => sum + toMonthly(d.perPayPeriod, d.frequency), 0);
-  const taxesMonthly = taxes.reduce((sum, t) => sum + toMonthly(t.perPayPeriod, t.frequency), 0);
-  const postTaxMonthly = postTaxDeductions.reduce((sum, d) => sum + toMonthly(d.perPayPeriod, d.frequency), 0);
-  
-
-  // OLD pre-tax (deprecated paycheckDeductions + 401k from assets)
-  const paycheckDeductionMonthly = paycheckDeductions.reduce((sum, d) => sum + toMonthly(d.perPayPeriod, d.frequency), 0);
   const { contributions: ret401kMonthly, employerMatch: employerMatchMonthly } = useMemo(() => getMonthlyPreTaxDeductions(assets), [assets]);
-  const oldPreTaxTotal = ret401kMonthly + paycheckDeductionMonthly;
 
-  // NEW waterfall calculation
-  const grossPay = paycheckMonthly + preTaxMonthly + taxesMonthly + postTaxMonthly;
-  const taxableIncome = grossPay - preTaxMonthly;
-  const afterTaxIncome = taxableIncome - taxesMonthly;
-  const netPay = afterTaxIncome - postTaxMonthly;
-
-  // Fallback to OLD waterfall if no new deductions entered yet
-  const useNewWaterfall = preTaxDeductions.length > 0 || taxes.length > 0 || postTaxDeductions.length > 0;
-  const displayGrossPay = useNewWaterfall ? grossPay : (paycheckMonthly + oldPreTaxTotal);
-
-  const totalNetToBank = paycheckMonthly + otherMonthly; // everything that actually hits accounts
+  const totalNetToBank = paycheckMonthly + otherMonthly;
 
   const getAccountName = (id: string) => bankAccounts.find((a) => a.id === id)?.name || 'Unknown';
 
@@ -270,7 +136,7 @@ export default function IncomeScreen() {
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Pre-Tax Out</Text>
-              <Text style={styles.summaryValuePurple}>${(useNewWaterfall ? preTaxMonthly : oldPreTaxTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}<Text style={styles.summaryPerMo}>/mo</Text></Text>
+              <Text style={styles.summaryValuePurple}>${preTaxMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}<Text style={styles.summaryPerMo}>/mo</Text></Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
@@ -280,91 +146,19 @@ export default function IncomeScreen() {
           </View>
         </View>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            PAYCHECK WATERFALL
-            ══════════════════════════════════════════════════════════════════════ */}
-        {paycheckMonthly > 0 && useNewWaterfall && (
-          <View style={styles.waterfallBox}>
-            <Text style={styles.waterfallTitle}>Complete Paycheck Breakdown</Text>
-
-            {/* Gross Pay */}
-            <View style={styles.waterfallRow}>
-              <Text style={styles.waterfallLabel}>Gross Pay</Text>
-              <Text style={styles.waterfallAmount}>${grossPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
+        {/* Manage Paycheck Breakdown Link */}
+        <TouchableOpacity 
+          style={styles.manageBreakdownCard}
+          onPress={() => router.push('/paycheck-breakdown')}
+        >
+          <View style={styles.manageBreakdownContent}>
+            <View>
+              <Text style={styles.manageBreakdownTitle}>⚙️ Manage Paycheck Deductions</Text>
+              <Text style={styles.manageBreakdownSub}>Add pre-tax, taxes, and post-tax items</Text>
             </View>
-
-            {/* Pre-tax deductions */}
-            {preTaxDeductions.map((d) => (
-              <View key={d.id} style={styles.waterfallRow}>
-                <Text style={styles.waterfallDeductLabel}>  − {d.name}</Text>
-                <Text style={styles.waterfallDeductAmount}>−${toMonthly(d.perPayPeriod, d.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
-              </View>
-            ))}
-
-            {/* Taxable Income */}
-            <View style={[styles.waterfallRow, { marginTop: 6 }]}>
-              <Text style={[styles.waterfallLabel, { color: '#4ade80' }]}>= Taxable Income</Text>
-              <Text style={[styles.waterfallAmount, { color: '#4ade80' }]}>${taxableIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-            </View>
-
-            {/* Taxes */}
-            {taxes.map((t) => (
-              <View key={t.id} style={styles.waterfallRow}>
-                <Text style={[styles.waterfallDeductLabel, { color: '#f87171' }]}>  − {t.name}</Text>
-                <Text style={[styles.waterfallDeductAmount, { color: '#f87171' }]}>−${toMonthly(t.perPayPeriod, t.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
-              </View>
-            ))}
-
-            {/* After-Tax Income */}
-            <View style={[styles.waterfallRow, { marginTop: 6 }]}>
-              <Text style={[styles.waterfallLabel, { color: '#4ade80' }]}>= After-Tax Income</Text>
-              <Text style={[styles.waterfallAmount, { color: '#4ade80' }]}>${afterTaxIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-            </View>
-
-            {/* Post-tax deductions */}
-            {postTaxDeductions.map((d) => (
-              <View key={d.id} style={styles.waterfallRow}>
-                <Text style={[styles.waterfallDeductLabel, { color: '#fb923c' }]}>  − {d.name}</Text>
-                <Text style={[styles.waterfallDeductAmount, { color: '#fb923c' }]}>−${toMonthly(d.perPayPeriod, d.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
-              </View>
-            ))}
-
-            {/* Divider */}
-            <View style={styles.waterfallDivider} />
-
-            {/* Net Pay */}
-            <View style={styles.waterfallRow}>
-              <Text style={styles.waterfallNetLabel}>= Net Pay to Bank</Text>
-              <Text style={styles.waterfallNetAmount}>${netPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-            </View>
-
-            {/* Employer match (if any) */}
-            {employerMatchMonthly > 0 && (
-              <View style={[styles.waterfallRow, { marginTop: 8 }]}>
-                <Text style={[styles.waterfallOtherLabel, { color: '#4ade80' }]}>  + Employer 401k Match</Text>
-                <Text style={[styles.waterfallOtherAmount, { color: '#4ade80' }]}>+${employerMatchMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
-            )}
-
-            {/* Trading/other income */}
-            {otherMonthly > 0 && (
-              <View style={styles.waterfallRow}>
-                <Text style={styles.waterfallOtherLabel}>  + Other Deposits</Text>
-                <Text style={styles.waterfallOtherAmount}>+${otherMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
-            )}
+            <Text style={styles.manageBreakdownArrow}>→</Text>
           </View>
-        )}
-
-        {/* OLD WATERFALL - fallback when new system not used yet */}
-        {paycheckMonthly > 0 && !useNewWaterfall && oldPreTaxTotal > 0 && (
-          <View style={styles.waterfallBox}>
-            <Text style={styles.waterfallTitle}>Paycheck Waterfall (Legacy)</Text>
-            <Text style={styles.helperText}>⚠️ Using old pre-tax tracking. Add items to the new sections below for complete breakdown.</Text>
-
-            {/* ... keep your old waterfall code here for backwards compatibility ... */}
-          </View>
-        )}
+        </TouchableOpacity>
 
         {/* ══════════════════════════════════════════════════════════════════════
             PAYCHECK INCOME SOURCES (salary / freelance / business)
@@ -383,15 +177,25 @@ export default function IncomeScreen() {
           </View>
         ) : (
           paycheckSources.map((src) => (
-            <View key={src.id} style={styles.incomeCard}>
+            <TouchableOpacity 
+              key={src.id} 
+              style={styles.incomeCard}
+              onPress={() => setSelectedPaycheck(src)}
+            >
               <View style={styles.cardHeader}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.cardName}>{src.name}</Text>
                   <Text style={styles.cardMeta}>
                     {SOURCE_LABELS[src.source] || src.source}  ·  → {getAccountName(src.bankAccountId)}
                   </Text>
+                  <Text style={styles.tapHint}>Tap to see breakdown</Text>
                 </View>
-                <TouchableOpacity onPress={() => removeIncomeSource(src.id)}>
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    removeIncomeSource(src.id);
+                  }}
+                >
                   <Text style={styles.deleteBtn}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -400,7 +204,7 @@ export default function IncomeScreen() {
                 <Text style={styles.cardFreq}>{FREQ_LABELS[src.frequency]}</Text>
                 <Text style={styles.cardMonthly}>${toMonthly(src.amount, src.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
 
@@ -421,24 +225,22 @@ export default function IncomeScreen() {
           </View>
         ) : (
           otherSources.map((src) => (
-            <View key={src.id} style={styles.incomeCard}>
-              <View style={[styles.incomeCard, { borderLeftColor: '#60a5fa', margin: 0, padding: 0 }]}>
-                <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={styles.cardName}>{src.name}</Text>
-                    <Text style={[styles.cardMeta, { color: '#60a5fa' }]}>
-                      {SOURCE_LABELS[src.source] || src.source}  ·  → {getAccountName(src.bankAccountId)}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => removeIncomeSource(src.id)}>
-                    <Text style={styles.deleteBtn}>✕</Text>
-                  </TouchableOpacity>
+            <View key={src.id} style={[styles.incomeCard, { borderLeftColor: '#60a5fa' }]}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardName}>{src.name}</Text>
+                  <Text style={[styles.cardMeta, { color: '#60a5fa' }]}>
+                    {SOURCE_LABELS[src.source] || src.source}  ·  → {getAccountName(src.bankAccountId)}
+                  </Text>
                 </View>
-                <View style={styles.cardNumbers}>
-                  <Text style={styles.cardAmount}>${src.amount.toLocaleString()}</Text>
-                  <Text style={styles.cardFreq}>{FREQ_LABELS[src.frequency]}</Text>
-                  <Text style={[styles.cardMonthly, { color: '#60a5fa' }]}>${toMonthly(src.amount, src.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-                </View>
+                <TouchableOpacity onPress={() => removeIncomeSource(src.id)}>
+                  <Text style={styles.deleteBtn}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.cardNumbers}>
+                <Text style={styles.cardAmount}>${src.amount.toLocaleString()}</Text>
+                <Text style={styles.cardFreq}>{FREQ_LABELS[src.frequency]}</Text>
+                <Text style={[styles.cardMonthly, { color: '#60a5fa' }]}>${toMonthly(src.amount, src.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
               </View>
             </View>
           ))
@@ -485,183 +287,87 @@ export default function IncomeScreen() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            NEW: PRE-TAX DEDUCTIONS (Medical, Dental, 401k Contributions)
+            ASSET-EARNED INCOME (DeFi yields, staking, dividends)
             ══════════════════════════════════════════════════════════════════════ */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Pre-Tax Deductions</Text>
-          <TouchableOpacity style={styles.addButtonPurple} onPress={() => setShowPreTaxModal(true)}>
-            <Text style={styles.addButtonPurpleText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.pretaxInfoBox}>
-          <Text style={styles.pretaxInfoText}>
-            These come OUT of your gross pay BEFORE taxes are calculated: Medical, Dental, Vision, Life Insurance, AD&D, 401k contributions.
-          </Text>
-        </View>
-
-        {preTaxDeductions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No pre-tax deductions</Text>
-            <Text style={styles.emptySubtext}>Add Medical, Dental, Vision, Life, AD&D, 401k contributions</Text>
-          </View>
-        ) : (
-          preTaxDeductions.map((ded) => (
-            <View key={ded.id} style={styles.deductionCard}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardName}>{ded.name}</Text>
-                  <Text style={styles.cardMetaPurple}>
-                    {PRETAX_LABELS[ded.type]}  ·  {FREQ_LABELS[ded.frequency]}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => removePreTaxDeduction(ded.id)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardNumbers}>
-                <Text style={styles.cardAmountPurple}>${ded.perPayPeriod.toLocaleString()}</Text>
-                <Text style={styles.cardFreq}>per pay</Text>
-                <Text style={styles.cardMonthlyPurple}>${toMonthly(ded.perPayPeriod, ded.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
+        {assets.filter(a => a.annualIncome > 0).length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+              <Text style={styles.sectionTitle}>Asset-Earned Income</Text>
+              <TouchableOpacity 
+                style={styles.addButtonGold} 
+                onPress={() => router.push('/(tabs)/profile')}
+              >
+                <Text style={styles.addButtonGoldText}>Manage →</Text>
+              </TouchableOpacity>
             </View>
-          ))
-        )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            NEW: TAXES (Federal W/H, Social Security, Medicare, State W/H)
-            ══════════════════════════════════════════════════════════════════════ */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Taxes</Text>
-          <TouchableOpacity style={styles.addButtonRed} onPress={() => setShowTaxModal(true)}>
-            <Text style={styles.addButtonRedText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.pretaxInfoBox}>
-          <Text style={styles.pretaxInfoText}>
-            Taxes taken from your taxable income: Federal W/H, Social Security, Medicare, State W/H.
-          </Text>
-        </View>
-
-        {taxes.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No taxes tracked</Text>
-            <Text style={styles.emptySubtext}>Add Federal W/H, Social Security, Medicare, State W/H</Text>
-          </View>
-        ) : (
-          taxes.map((tax) => (
-            <View key={tax.id} style={[styles.deductionCard, { borderLeftColor: '#f87171' }]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardName}>{tax.name}</Text>
-                  <Text style={[styles.cardMetaPurple, { color: '#f87171' }]}>
-                    {TAX_LABELS[tax.type]}  ·  {FREQ_LABELS[tax.frequency]}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => removeTax(tax.id)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardNumbers}>
-                <Text style={[styles.cardAmountPurple, { color: '#f87171' }]}>${tax.perPayPeriod.toLocaleString()}</Text>
-                <Text style={styles.cardFreq}>per pay</Text>
-                <Text style={[styles.cardMonthlyPurple, { color: '#f87171' }]}>${toMonthly(tax.perPayPeriod, tax.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
+            <View style={styles.assetIncomeInfoBox}>
+              <Text style={styles.assetIncomeInfoText}>
+                💰 Your assets are working for you! These generate passive income automatically.
+              </Text>
             </View>
-          ))
-        )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            NEW: POST-TAX DEDUCTIONS (401k Loan, Enhanced LTD)
-            ══════════════════════════════════════════════════════════════════════ */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Post-Tax Deductions</Text>
-          <TouchableOpacity style={styles.addButtonOrange} onPress={() => setShowPostTaxModal(true)}>
-            <Text style={styles.addButtonOrangeText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
+            {assets
+              .filter(a => a.annualIncome > 0)
+              .map((asset) => {
+                const monthlyIncome = asset.annualIncome / 12;
+                const apy = asset.metadata.type === 'crypto' && 'apy' in asset.metadata ? asset.metadata.apy : null;
+                
+                return (
+                  <View key={asset.id} style={styles.assetIncomeCard}>
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.cardName}>{asset.name}</Text>
+                        <Text style={styles.assetIncomeMeta}>
+                          {asset.type === 'crypto' ? '🪙 Crypto' : 
+                           asset.type === 'defi' ? '⚡ DeFi' : 
+                           asset.type === 'stocks' ? '📈 Stocks' : 
+                           asset.type === 'real_estate' ? '🏠 Real Estate' : 
+                           asset.type === 'business' ? '🏢 Business' : '💰 Other'}
+                          {apy && ` · ${(apy * 100).toFixed(2)}% APY`}
+                        </Text>
+                        <Text style={styles.assetIncomeBalance}>
+                          Balance: ${asset.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardNumbers}>
+                      <View>
+                        <Text style={styles.assetIncomeAmountLabel}>Monthly Income</Text>
+                        <Text style={styles.assetIncomeAmount}>${monthlyIncome.toLocaleString(undefined, { maximumFractionDigits: 2 })}/mo</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.assetIncomeAmountLabel}>Annual Income</Text>
+                        <Text style={styles.assetIncomeAnnual}>${asset.annualIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
 
-        <View style={styles.pretaxInfoBox}>
-          <Text style={styles.pretaxInfoText}>
-            These come OUT after taxes: 401k loan repayments, Enhanced LTD, and other post-tax deductions.
-          </Text>
-        </View>
-
-        {postTaxDeductions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No post-tax deductions</Text>
-            <Text style={styles.emptySubtext}>Add 401k loan, Enhanced LTD, etc.</Text>
-          </View>
-        ) : (
-          postTaxDeductions.map((ded) => (
-            <View key={ded.id} style={[styles.deductionCard, { borderLeftColor: '#fb923c' }]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardName}>{ded.name}</Text>
-                  <Text style={[styles.cardMetaPurple, { color: '#fb923c' }]}>
-                    {POSTTAX_LABELS[ded.type]}  ·  {FREQ_LABELS[ded.frequency]}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => removePostTaxDeduction(ded.id)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardNumbers}>
-                <Text style={[styles.cardAmountPurple, { color: '#fb923c' }]}>${ded.perPayPeriod.toLocaleString()}</Text>
-                <Text style={styles.cardFreq}>per pay</Text>
-                <Text style={[styles.cardMonthlyPurple, { color: '#fb923c' }]}>${toMonthly(ded.perPayPeriod, ded.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
+            {/* Total asset income */}
+            <View style={styles.assetIncomeTotalCard}>
+              <Text style={styles.assetIncomeTotalLabel}>Total Asset Income</Text>
+              <Text style={styles.assetIncomeTotalAmount}>
+                ${(assets.filter(a => a.annualIncome > 0).reduce((sum, a) => sum + a.annualIncome, 0) / 12).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo
+              </Text>
+              <Text style={styles.assetIncomeTotalAnnual}>
+                ${assets.filter(a => a.annualIncome > 0).reduce((sum, a) => sum + a.annualIncome, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr
+              </Text>
             </View>
-          ))
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            PRE-TAX DEDUCTIONS (401k loan, healthcare, etc.)
-            ══════════════════════════════════════════════════════════════════════ */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Pre-Tax Deductions</Text>
-          <TouchableOpacity style={styles.addButtonPurple} onPress={() => setShowDeductionModal(true)}>
-            <Text style={styles.addButtonPurpleText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.pretaxInfoBox}>
-          <Text style={styles.pretaxInfoText}>
-            These come out of your paycheck before your net deposit. 401k loan repayments, healthcare premiums, etc. Your 401k contribution (from the Assets tab) is also shown in the waterfall above.
-          </Text>
-        </View>
-
-        {paycheckDeductions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No pre-tax deductions</Text>
-            <Text style={styles.emptySubtext}>Add 401k loan repayments, healthcare plans, etc.</Text>
-          </View>
-        ) : (
-          paycheckDeductions.map((ded) => (
-            <View key={ded.id} style={styles.deductionCard}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardName}>{ded.name}</Text>
-                  <Text style={styles.cardMetaPurple}>
-                    {DEDUCTION_LABELS[ded.type]}  ·  {FREQ_LABELS[ded.frequency]}
-                  </Text>
-                  {ded.notes && <Text style={styles.cardNotes}>{ded.notes}</Text>}
-                </View>
-                <TouchableOpacity onPress={() => removePaycheckDeduction(ded.id)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardNumbers}>
-                <Text style={styles.cardAmountPurple}>${ded.perPayPeriod.toLocaleString()}</Text>
-                <Text style={styles.cardFreq}>per pay</Text>
-                <Text style={styles.cardMonthlyPurple}>${toMonthly(ded.perPayPeriod, ded.frequency).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</Text>
-              </View>
-            </View>
-          ))
+          </>
         )}
 
       </ScrollView>
+
+      {/* ═══════════════ PAYCHECK BREAKDOWN MODAL ═══════════════ */}
+      {selectedPaycheck && (
+        <PaycheckBreakdownModal
+          visible={!!selectedPaycheck}
+          onClose={() => setSelectedPaycheck(null)}
+          paycheckSource={selectedPaycheck}
+        />
+      )}
 
       {/* ═══════════════ ADD INCOME SOURCE MODAL ═══════════════ */}
       <Modal visible={showIncomeModal} animationType="slide" transparent={true} onRequestClose={() => setShowIncomeModal(false)}>
@@ -783,296 +489,6 @@ export default function IncomeScreen() {
         </View>
       </Modal>
 
-      {/* ═══════════════ ADD DEDUCTION MODAL ═══════════════ */}
-      <Modal visible={showDeductionModal} animationType="slide" transparent={true} onRequestClose={() => setShowDeductionModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <Text style={[styles.modalTitle, { color: '#c084fc' }]}>Add Pre-Tax Deduction</Text>
-
-              {/* Type picker */}
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.pillRow}>
-                {(['retirement_loan', 'healthcare', 'other_pretax'] as const).map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.pill, dedType === t && styles.pillActivePurple]}
-                    onPress={() => setDedType(t)}
-                  >
-                    <Text style={[styles.pillText, dedType === t && styles.pillTextActivePurple]}>{DEDUCTION_LABELS[t]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {dedType === 'retirement_loan' && (
-                <Text style={styles.helperText}>The 401k loan repayment taken from each paycheck — separate from your 401k contribution (which lives in Assets).</Text>
-              )}
-              {dedType === 'healthcare' && (
-                <Text style={styles.helperText}>Your health insurance premium deducted from each paycheck before net pay.</Text>
-              )}
-              {dedType === 'other_pretax' && (
-                <Text style={styles.helperText}>Any other pre-tax deduction from your paycheck.</Text>
-              )}
-
-              {/* Name */}
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder={dedType === 'retirement_loan' ? '401k Loan Repayment' : dedType === 'healthcare' ? 'Blue Cross Health Plan' : 'Pre-tax deduction'}
-                placeholderTextColor="#666"
-                value={dedName}
-                onChangeText={setDedName}
-              />
-
-              {/* Amount per paycheck */}
-              <Text style={styles.label}>Amount Per Paycheck</Text>
-              <View style={styles.inputRow}>
-                <Text style={[styles.currencySymbol, { color: '#c084fc' }]}>$</Text>
-                <TextInput style={styles.input} placeholder="0" placeholderTextColor="#666" keyboardType="numeric" value={dedAmount} onChangeText={setDedAmount} />
-              </View>
-
-              {/* Frequency */}
-              <Text style={styles.label}>Pay Frequency</Text>
-              <View style={styles.pillRow}>
-                {(['weekly', 'biweekly', 'twice_monthly', 'monthly'] as const).map((f) => (
-                  <TouchableOpacity
-                    key={f}
-                    style={[styles.pill, dedFreq === f && styles.pillActivePurple]}
-                    onPress={() => setDedFreq(f)}
-                  >
-                    <Text style={[styles.pillText, dedFreq === f && styles.pillTextActivePurple]}>{FREQ_LABELS[f]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Monthly preview */}
-              {parseFloat(dedAmount) > 0 && (
-                <Text style={[styles.monthlyPreview, { color: '#c084fc' }]}>= ${toMonthly(parseFloat(dedAmount), dedFreq).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo pre-tax</Text>
-              )}
-
-              {/* Notes */}
-              <Text style={styles.label}>Notes (optional)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g., 5-year repayment, family plan"
-                placeholderTextColor="#666"
-                value={dedNotes}
-                onChangeText={setDedNotes}
-              />
-
-              {/* Buttons */}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowDeductionModal(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalAddBtnPurple, (!dedName || !dedAmount) && styles.modalBtnDisabled]}
-                  onPress={handleAddDeduction}
-                  disabled={!dedName || !dedAmount}
-                >
-                  <Text style={styles.modalAddText}>Add</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ═══════════════ ADD PRE-TAX DEDUCTION MODAL ═══════════════ */}
-      <Modal visible={showPreTaxModal} animationType="slide" transparent={true} onRequestClose={() => setShowPreTaxModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <Text style={[styles.modalTitle, { color: '#c084fc' }]}>Add Pre-Tax Deduction</Text>
-
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.pillRow}>
-                {(['medical_coverage', 'vision_coverage', 'dental_coverage', 'life_insurance', 'add_insurance', '401k_contribution', 'other_pretax'] as const).map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.pill, preTaxType === t && styles.pillActivePurple]}
-                    onPress={() => setPreTaxType(t)}
-                  >
-                    <Text style={[styles.pillText, preTaxType === t && styles.pillTextActivePurple]}>{PRETAX_LABELS[t]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g., Medical Coverage, Vision Plan"
-                placeholderTextColor="#666"
-                value={preTaxName}
-                onChangeText={setPreTaxName}
-              />
-
-              <Text style={styles.label}>Amount Per Paycheck</Text>
-              <View style={styles.inputRow}>
-                <Text style={[styles.currencySymbol, { color: '#c084fc' }]}>$</Text>
-                <TextInput style={styles.input} placeholder="0" placeholderTextColor="#666" keyboardType="numeric" value={preTaxAmount} onChangeText={setPreTaxAmount} />
-              </View>
-
-              <Text style={styles.label}>Pay Frequency</Text>
-              <View style={styles.pillRow}>
-                {(['weekly', 'biweekly', 'twice_monthly', 'monthly'] as const).map((f) => (
-                  <TouchableOpacity key={f} style={[styles.pill, preTaxFreq === f && styles.pillActivePurple]} onPress={() => setPreTaxFreq(f)}>
-                    <Text style={[styles.pillText, preTaxFreq === f && styles.pillTextActivePurple]}>{FREQ_LABELS[f]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {parseFloat(preTaxAmount) > 0 && (
-                <Text style={[styles.monthlyPreview, { color: '#c084fc' }]}>= ${toMonthly(parseFloat(preTaxAmount), preTaxFreq).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo pre-tax</Text>
-              )}
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowPreTaxModal(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalAddBtnPurple, (!preTaxName || !preTaxAmount) && styles.modalBtnDisabled]}
-                  onPress={handleAddPreTax}
-                  disabled={!preTaxName || !preTaxAmount}
-                >
-                  <Text style={styles.modalAddText}>Add</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ═══════════════ ADD TAX MODAL ═══════════════ */}
-      <Modal visible={showTaxModal} animationType="slide" transparent={true} onRequestClose={() => setShowTaxModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <Text style={[styles.modalTitle, { color: '#f87171' }]}>Add Tax</Text>
-
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.pillRow}>
-                {(['federal_withholding', 'social_security', 'medicare', 'state_withholding'] as const).map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.pill, taxType === t && styles.pillActiveRed]}
-                    onPress={() => setTaxType(t)}
-                  >
-                    <Text style={[styles.pillText, taxType === t && styles.pillTextActiveRed]}>{TAX_LABELS[t]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g., Federal W/H, Social Security"
-                placeholderTextColor="#666"
-                value={taxName}
-                onChangeText={setTaxName}
-              />
-
-              <Text style={styles.label}>Amount Per Paycheck</Text>
-              <View style={styles.inputRow}>
-                <Text style={[styles.currencySymbol, { color: '#f87171' }]}>$</Text>
-                <TextInput style={styles.input} placeholder="0" placeholderTextColor="#666" keyboardType="numeric" value={taxAmount} onChangeText={setTaxAmount} />
-              </View>
-
-              <Text style={styles.label}>Pay Frequency</Text>
-              <View style={styles.pillRow}>
-                {(['weekly', 'biweekly', 'twice_monthly', 'monthly'] as const).map((f) => (
-                  <TouchableOpacity key={f} style={[styles.pill, taxFreq === f && styles.pillActiveRed]} onPress={() => setTaxFreq(f)}>
-                    <Text style={[styles.pillText, taxFreq === f && styles.pillTextActiveRed]}>{FREQ_LABELS[f]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {parseFloat(taxAmount) > 0 && (
-                <Text style={[styles.monthlyPreview, { color: '#f87171' }]}>= ${toMonthly(parseFloat(taxAmount), taxFreq).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo tax</Text>
-              )}
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowTaxModal(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalAddBtnRed, (!taxName || !taxAmount) && styles.modalBtnDisabled]}
-                  onPress={handleAddTax}
-                  disabled={!taxName || !taxAmount}
-                >
-                  <Text style={styles.modalAddText}>Add</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ═══════════════ ADD POST-TAX DEDUCTION MODAL ═══════════════ */}
-      <Modal visible={showPostTaxModal} animationType="slide" transparent={true} onRequestClose={() => setShowPostTaxModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <Text style={[styles.modalTitle, { color: '#fb923c' }]}>Add Post-Tax Deduction</Text>
-
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.pillRow}>
-                {(['401k_loan', 'enhanced_ltd', 'other_posttax'] as const).map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.pill, postTaxType === t && styles.pillActiveOrange]}
-                    onPress={() => setPostTaxType(t)}
-                  >
-                    <Text style={[styles.pillText, postTaxType === t && styles.pillTextActiveOrange]}>{POSTTAX_LABELS[t]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g., 401k Loan, Enhanced LTD"
-                placeholderTextColor="#666"
-                value={postTaxName}
-                onChangeText={setPostTaxName}
-              />
-
-              <Text style={styles.label}>Amount Per Paycheck</Text>
-              <View style={styles.inputRow}>
-                <Text style={[styles.currencySymbol, { color: '#fb923c' }]}>$</Text>
-                <TextInput style={styles.input} placeholder="0" placeholderTextColor="#666" keyboardType="numeric" value={postTaxAmount} onChangeText={setPostTaxAmount} />
-              </View>
-
-              <Text style={styles.label}>Pay Frequency</Text>
-              <View style={styles.pillRow}>
-                {(['weekly', 'biweekly', 'twice_monthly', 'monthly'] as const).map((f) => (
-                  <TouchableOpacity key={f} style={[styles.pill, postTaxFreq === f && styles.pillActiveOrange]} onPress={() => setPostTaxFreq(f)}>
-                    <Text style={[styles.pillText, postTaxFreq === f && styles.pillTextActiveOrange]}>{FREQ_LABELS[f]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {parseFloat(postTaxAmount) > 0 && (
-                <Text style={[styles.monthlyPreview, { color: '#fb923c' }]}>= ${toMonthly(parseFloat(postTaxAmount), postTaxFreq).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo post-tax</Text>
-              )}
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowPostTaxModal(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalAddBtnOrange, (!postTaxName || !postTaxAmount) && styles.modalBtnDisabled]}
-                  onPress={handleAddPostTax}
-                  disabled={!postTaxName || !postTaxAmount}
-                >
-                  <Text style={styles.modalAddText}>Add</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
     </View>
   );
 }
@@ -1087,7 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1f2e',
     borderRadius: 14,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#2a2f3e',
   },
@@ -1099,31 +515,34 @@ const styles = StyleSheet.create({
   summaryValuePurple:{ fontSize: 20, fontWeight: 'bold', color: '#c084fc' },
   summaryPerMo:      { fontSize: 11, fontWeight: '400', color: '#666' },
 
-  // ── Waterfall ─────────────────────────────────────────────────────────────
-  waterfallBox: {
-    backgroundColor: '#141825',
+  // ── Manage Breakdown Card ────────────────────────────────────────────────
+  manageBreakdownCard: {
+    backgroundColor: '#1a1f2e',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2a2f3e',
+    borderWidth: 2,
+    borderColor: '#f4c430',
   },
-  waterfallTitle: { fontSize: 13, fontWeight: 'bold', color: '#888', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
-  waterfallRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5 },
-
-  waterfallLabel:       { fontSize: 15, color: '#fff', fontWeight: '600' },
-  waterfallAmount:      { fontSize: 15, color: '#fff', fontWeight: '600' },
-
-  waterfallDeductLabel: { fontSize: 14, color: '#c084fc', paddingLeft: 12 },
-  waterfallDeductAmount:{ fontSize: 14, color: '#c084fc' },
-
-  waterfallDivider: { height: 1, backgroundColor: '#2a2f3e', marginVertical: 8 },
-
-  waterfallNetLabel:    { fontSize: 15, color: '#4ade80', fontWeight: 'bold' },
-  waterfallNetAmount:   { fontSize: 15, color: '#4ade80', fontWeight: 'bold' },
-
-  waterfallOtherLabel:  { fontSize: 14, color: '#60a5fa', paddingLeft: 0 },
-  waterfallOtherAmount: { fontSize: 14, color: '#60a5fa' },
+  manageBreakdownContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  manageBreakdownTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f4c430',
+    marginBottom: 4,
+  },
+  manageBreakdownSub: {
+    fontSize: 13,
+    color: '#a0a0a0',
+  },
+  manageBreakdownArrow: {
+    fontSize: 24,
+    color: '#f4c430',
+  },
 
   // ── Section headers ───────────────────────────────────────────────────────
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
@@ -1132,24 +551,49 @@ const styles = StyleSheet.create({
   addButton:     { backgroundColor: '#4ade80', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
   addButtonText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
 
-  addButtonPurple:     { backgroundColor: '#c084fc', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
-  addButtonPurpleText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
-
   addButtonBlue:     { backgroundColor: '#60a5fa', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
   addButtonBlueText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
 
-  addButtonRed:          { backgroundColor: '#f87171', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
-  addButtonRedText:      { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
-  addButtonOrange:       { backgroundColor: '#fb923c', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
-  addButtonOrangeText:   { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
-  
-  pillActiveRed:         { borderColor: '#f87171', backgroundColor: '#3a1a1e' },
-  pillTextActiveRed:     { color: '#f87171', fontWeight: 'bold' },
-  pillActiveOrange:      { borderColor: '#fb923c', backgroundColor: '#3a2a1e' },
-  pillTextActiveOrange:  { color: '#fb923c', fontWeight: 'bold' },
-  
-  modalAddBtnRed:        { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#f87171', alignItems: 'center' },
-  modalAddBtnOrange:     { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#fb923c', alignItems: 'center' },
+  addButtonGold:     { backgroundColor: '#f4c430', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
+  addButtonGoldText: { color: '#0a0e1a', fontWeight: 'bold', fontSize: 14 },
+
+  // ── Asset Income Cards ────────────────────────────────────────────────────
+  assetIncomeInfoBox: {
+    backgroundColor: '#2a1f1e',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#f4c43044',
+  },
+  assetIncomeInfoText: { fontSize: 13, color: '#a0a0a0', lineHeight: 18 },
+
+  assetIncomeCard: {
+    backgroundColor: '#1a1f2e',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f4c430',
+  },
+  assetIncomeMeta: { fontSize: 13, color: '#f4c430', marginBottom: 2 },
+  assetIncomeBalance: { fontSize: 12, color: '#666', marginTop: 2 },
+  assetIncomeAmountLabel: { fontSize: 11, color: '#666', marginBottom: 2 },
+  assetIncomeAmount: { fontSize: 18, fontWeight: 'bold', color: '#4ade80' },
+  assetIncomeAnnual: { fontSize: 14, color: '#888' },
+
+  assetIncomeTotalCard: {
+    backgroundColor: '#1e2a1e',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 6,
+    borderWidth: 2,
+    borderColor: '#4ade80',
+    alignItems: 'center',
+  },
+  assetIncomeTotalLabel: { fontSize: 12, color: '#666', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  assetIncomeTotalAmount: { fontSize: 26, fontWeight: 'bold', color: '#4ade80' },
+  assetIncomeTotalAnnual: { fontSize: 14, color: '#888', marginTop: 4 },
 
   // ── Income cards ──────────────────────────────────────────────────────────
   incomeCard: {
@@ -1162,7 +606,8 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   cardName:   { fontSize: 16, fontWeight: 'bold', color: '#fff', marginBottom: 3 },
-  cardMeta:   { fontSize: 13, color: '#4ade80' },
+  cardMeta:   { fontSize: 13, color: '#4ade80', marginBottom: 3 },
+  tapHint:    { fontSize: 11, color: '#666', fontStyle: 'italic' },
   deleteBtn:  { fontSize: 18, color: '#ff4444', padding: 2 },
 
   cardNumbers:   { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
@@ -1170,93 +615,10 @@ const styles = StyleSheet.create({
   cardFreq:      { fontSize: 12, color: '#666' },
   cardMonthly:   { fontSize: 15, color: '#4ade80', fontWeight: '600', marginLeft: 'auto' },
 
-  // ── Deduction cards ───────────────────────────────────────────────────────
-  deductionCard: {
-    backgroundColor: '#1a1f2e',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#c084fc',
-  },
-  cardMetaPurple:    { fontSize: 13, color: '#c084fc' },
-  cardNotes:         { fontSize: 12, color: '#666', marginTop: 2, fontStyle: 'italic' },
-  cardAmountPurple:  { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  cardMonthlyPurple: { fontSize: 15, color: '#c084fc', fontWeight: '600', marginLeft: 'auto' },
-
-  // ── Pre-tax info box ──────────────────────────────────────────────────────
-  pretaxInfoBox: {
-    backgroundColor: '#1e1a2e',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#c084fc44',
-  },
-  pretaxInfoText: { fontSize: 13, color: '#a0a0a0', lineHeight: 18 },
-
   // ── Empty states ──────────────────────────────────────────────────────────
   emptyCard:    { padding: 30, alignItems: 'center' },
   emptyText:    { fontSize: 16, color: '#666', marginBottom: 6 },
   emptySubtext: { fontSize: 13, color: '#444', textAlign: 'center' },
-
-  // ── Modals (shared) ───────────────────────────────────────────────────────
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#0a0e1a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
-  modalTitle:   { fontSize: 22, fontWeight: 'bold', color: '#4ade80', marginBottom: 18 },
-  label:        { fontSize: 15, fontWeight: 'bold', color: '#fff', marginBottom: 6, marginTop: 14 },
-  helperText:   { fontSize: 13, color: '#666', marginBottom: 6, lineHeight: 18 },
-  modalInput:   { backgroundColor: '#1a1f2e', borderRadius: 12, padding: 14, fontSize: 16, color: '#fff', borderWidth: 2, borderColor: '#2a2f3e' },
-
-  inputRow:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1f2e', borderRadius: 12, paddingHorizontal: 14, borderWidth: 2, borderColor: '#2a2f3e' },
-  currencySymbol:  { fontSize: 20, color: '#4ade80', marginRight: 6 },
-  input:           { flex: 1, fontSize: 20, color: '#fff', paddingVertical: 14 },
-
-  // Pill row
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#2a2f3e',
-    backgroundColor: '#1a1f2e',
-  },
-  pillActive:            { borderColor: '#4ade80', backgroundColor: '#1a2f1e' },
-  pillActivePurple:      { borderColor: '#c084fc', backgroundColor: '#2a1e3e' },
-  pillText:              { fontSize: 13, color: '#666' },
-  pillTextActive:        { color: '#4ade80', fontWeight: 'bold' },
-  pillTextActivePurple:  { color: '#c084fc', fontWeight: 'bold' },
-
-  monthlyPreview: { fontSize: 14, color: '#4ade80', marginTop: 8, fontWeight: '600' },
-
-  // Account picker
-  noAccountsWarn: { fontSize: 14, color: '#ff6b6b', padding: 12, backgroundColor: '#2a1a1e', borderRadius: 8, marginTop: 4 },
-  accountList:    { gap: 8 },
-  accountOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#2a2f3e',
-    backgroundColor: '#1a1f2e',
-  },
-  accountOptionActive:     { borderColor: '#4ade80', backgroundColor: '#1a2f1e' },
-  accountOptionName:       { fontSize: 15, color: '#fff', marginBottom: 2 },
-  accountOptionNameActive: { color: '#4ade80', fontWeight: 'bold' },
-  accountOptionSub:        { fontSize: 12, color: '#666' },
-  checkMark:               { fontSize: 18, color: '#4ade80', fontWeight: 'bold' },
-
-  // Modal buttons
-  modalButtons:     { flexDirection: 'row', gap: 12, marginTop: 22, marginBottom: 16 },
-  modalCancelBtn:   { flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center' },
-  modalCancelText:  { color: '#a0a0a0', fontSize: 16 },
-  modalAddBtn:      { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#4ade80', alignItems: 'center' },
-  modalAddBtnPurple:{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#c084fc', alignItems: 'center' },
-  modalBtnDisabled: { opacity: 0.4 },
-  modalAddText:     { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
 
   // ── SKR staking yield card ────────────────────────────────────────────
   skrYieldCard: {
@@ -1295,4 +657,59 @@ const styles = StyleSheet.create({
   skrYieldNumValue: { fontSize: 16, fontWeight: 'bold', color: '#4ade80' },
   skrYieldNumSub: { fontSize: 11, color: '#666', marginTop: 2 },
   skrYieldDivider: { width: 1, height: 40, backgroundColor: '#2a2f3e' },
+
+  // ── Modals (shared) ───────────────────────────────────────────────────────
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#0a0e1a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
+  modalTitle:   { fontSize: 22, fontWeight: 'bold', color: '#4ade80', marginBottom: 18 },
+  label:        { fontSize: 15, fontWeight: 'bold', color: '#fff', marginBottom: 6, marginTop: 14 },
+  helperText:   { fontSize: 13, color: '#666', marginBottom: 6, lineHeight: 18 },
+  modalInput:   { backgroundColor: '#1a1f2e', borderRadius: 12, padding: 14, fontSize: 16, color: '#fff', borderWidth: 2, borderColor: '#2a2f3e' },
+
+  inputRow:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1f2e', borderRadius: 12, paddingHorizontal: 14, borderWidth: 2, borderColor: '#2a2f3e' },
+  currencySymbol:  { fontSize: 20, color: '#4ade80', marginRight: 6 },
+  input:           { flex: 1, fontSize: 20, color: '#fff', paddingVertical: 14 },
+
+  // Pill row
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#2a2f3e',
+    backgroundColor: '#1a1f2e',
+  },
+  pillActive:            { borderColor: '#4ade80', backgroundColor: '#1a2f1e' },
+  pillText:              { fontSize: 13, color: '#666' },
+  pillTextActive:        { color: '#4ade80', fontWeight: 'bold' },
+
+  monthlyPreview: { fontSize: 14, color: '#4ade80', marginTop: 8, fontWeight: '600' },
+
+  // Account picker
+  noAccountsWarn: { fontSize: 14, color: '#ff6b6b', padding: 12, backgroundColor: '#2a1a1e', borderRadius: 8, marginTop: 4 },
+  accountList:    { gap: 8 },
+  accountOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#2a2f3e',
+    backgroundColor: '#1a1f2e',
+  },
+  accountOptionActive:     { borderColor: '#4ade80', backgroundColor: '#1a2f1e' },
+  accountOptionName:       { fontSize: 15, color: '#fff', marginBottom: 2 },
+  accountOptionNameActive: { color: '#4ade80', fontWeight: 'bold' },
+  accountOptionSub:        { fontSize: 12, color: '#666' },
+  checkMark:               { fontSize: 18, color: '#4ade80', fontWeight: 'bold' },
+
+  // Modal buttons
+  modalButtons:     { flexDirection: 'row', gap: 12, marginTop: 22, marginBottom: 16 },
+  modalCancelBtn:   { flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#2a2f3e', alignItems: 'center' },
+  modalCancelText:  { color: '#a0a0a0', fontSize: 16 },
+  modalAddBtn:      { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#4ade80', alignItems: 'center' },
+  modalBtnDisabled: { opacity: 0.4 },
+  modalAddText:     { color: '#0a0e1a', fontSize: 16, fontWeight: 'bold' },
 });

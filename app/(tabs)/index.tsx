@@ -159,7 +159,7 @@ export default function HomeScreen() {
       )}
 
       {/* ── Quick actions ───────────────────────────────────────────── */}
-      <View style={styles.quickActions}>
+      {/* <View style={styles.quickActions}>
         <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/(tabs)/income')}>
           <Text style={styles.actionButtonText}>💵 Income</Text>
         </TouchableOpacity>
@@ -168,6 +168,53 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/(tabs)/desires')}>
           <Text style={styles.actionButtonText}>🎯 Desires</Text>
+        </TouchableOpacity>
+      </View> */}
+
+      {/* ── Additional Tools ───────────────────────────────────── */}
+      <View style={styles.toolsSection}>
+        <Text style={styles.toolsSectionTitle}>Tools</Text>
+        
+        <TouchableOpacity 
+          style={styles.toolCard}
+          onPress={() => router.push('/trading')}
+        >
+          <View style={styles.toolLeft}>
+            <Text style={styles.toolIcon}>📊</Text>
+            <View>
+              <Text style={styles.toolTitle}>Trading Tracker</Text>
+              <Text style={styles.toolSubtitle}>Track trades and performance</Text>
+            </View>
+          </View>
+          <Text style={styles.toolArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.toolCard}
+          onPress={() => router.push('/expenses')}
+        >
+          <View style={styles.toolLeft}>
+            <Text style={styles.toolIcon}>💸</Text>
+            <View>
+              <Text style={styles.toolTitle}>Daily Expenses</Text>
+              <Text style={styles.toolSubtitle}>Log daily spending</Text>
+            </View>
+          </View>
+          <Text style={styles.toolArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.toolCard}
+          onPress={() => router.push('/profile')}
+        >
+          <View style={styles.toolLeft}>
+            <Text style={styles.toolIcon}>👤</Text>
+            <View>
+              <Text style={styles.toolTitle}>Profile & Settings</Text>
+              <Text style={styles.toolSubtitle}>Accounts and backup</Text>
+            </View>
+          </View>
+          <Text style={styles.toolArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -324,6 +371,52 @@ const styles = StyleSheet.create({
   // independently while the image panel stays pinned.
   webDashboardScroll: { flex: 1, height: '100%' },
   content: { padding: 20 },
+
+  toolsSection: { 
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  toolsSectionTitle: { 
+    fontSize: 13, 
+    color: '#666', 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.8, 
+    marginBottom: 12,
+  },
+  toolCard: {
+    backgroundColor: '#1a1f2e',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2a2f3e',
+  },
+  toolLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  toolIcon: {
+    fontSize: 28,
+  },
+  toolTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  toolSubtitle: {
+    fontSize: 12,
+    color: '#888',
+  },
+  toolArrow: {
+    fontSize: 28,
+    color: '#666',
+  },
 
   // Health badge
   healthBadge: {

@@ -167,24 +167,24 @@ export interface Debt {
 // ─── Paycheck Breakdown ──────────────────────────────────────────────────────
 // Complete paycheck waterfall: Gross → Pre-tax → Taxes → Post-tax → Net
 
-export type PreTaxDeductionType = 
-  | 'medical_coverage' 
-  | 'vision_coverage' 
-  | 'dental_coverage' 
-  | 'life_insurance' 
+export type PreTaxDeductionType =
+  | 'medical_coverage'
+  | 'vision_coverage'
+  | 'dental_coverage'
+  | 'life_insurance'
   | 'add_insurance'  // AD&D
   | '401k_contribution'  // This goes here now, NOT in post-tax
   | 'other_pretax';
 
-export type TaxType = 
-  | 'federal_withholding' 
-  | 'social_security' 
-  | 'medicare' 
+export type TaxType =
+  | 'federal_withholding'
+  | 'social_security'
+  | 'medicare'
   | 'state_withholding';  // AZ W/H, etc.
 
-export type PostTaxDeductionType = 
+export type PostTaxDeductionType =
   | '401k_loan'  // Loan repayment is POST-tax
-  | 'enhanced_ltd' 
+  | 'enhanced_ltd'
   | 'other_posttax';
 
 export interface PreTaxDeduction {
@@ -265,7 +265,7 @@ export interface DriftProfitAllocation {
 
 // ─── Daily Expense Tracker ───────────────────────────────────────────────────
 // Optional: track every expense manually (alternative to using daily_living estimate)
-export type DailyExpenseCategory = 
+export type DailyExpenseCategory =
   | 'daily_spend'      // crypto.com card daily budget
   | 'transfer'         // Xfer - moving money between accounts
   | 'smoking'
@@ -300,6 +300,7 @@ export interface UserSettings {
   notificationsEnabled: boolean;
   syncFrequency: 'realtime' | 'hourly' | 'daily';
   darkMode: boolean;
+  defaultExpandAssetSections: boolean;
 }
 
 export interface UserProfile {

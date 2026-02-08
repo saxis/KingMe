@@ -1,17 +1,18 @@
 // app/(tabs)/profile.tsx
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useState } from 'react';
-import { useStore, useFreedomScore } from '../../src/store/useStore';
-import { WalletConnect } from '../../src/components/WalletConnect';
-import { useWallet } from '../../src/providers/wallet-provider';
+import { useStore, useFreedomScore } from '../src/store/useStore';
+import { WalletConnect } from '../src/components/WalletConnect';
+import { useWallet } from '../src/providers/wallet-provider';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import type { BankAccount } from '../../src/types';
+import type { BankAccount } from '../src/types';
 import { loadBackup, saveBackup } from '@/services/encryptedBackup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { encryptProfileWithWallet, decryptProfileWithWallet } from './walletStorage';
+//import { encryptProfileWithWallet, decryptProfileWithWallet } from './walletStorage';
 const BACKUP_API = process.env.EXPO_PUBLIC_BACKUP_API_URL || 'http://localhost:3000/api/backup';
+import AssetSectionSettings from '../src/components/AssetSectionSettings';
 
 export default function ProfileScreen() {
   const income            = useStore((state) => state.income);
@@ -386,6 +387,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+          <AssetSectionSettings />
         </View>
 
         {/* ── Backup & Restore ── */}
@@ -404,7 +406,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Arweave Encrypted Sync ── */}
+        {/* ── Encrypted Sync ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🌐 Encrypted Cloud Backup</Text>
           <Text style={styles.sectionSubtext}>
